@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { ShieldCheck, ArrowRight, Mail, Lock, User as UserIcon, Phone } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Mail, Lock, Phone } from 'lucide-react';
 
 export default function Auth() {
     const [isLogin, setIsLogin] = useState(true);
