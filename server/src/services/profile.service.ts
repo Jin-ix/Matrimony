@@ -1,0 +1,177 @@
+import prisma from '../config/database.js';
+import type { Rite } from '@prisma/client';
+
+export async function getProfile(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            profile: true,
+            photos: { orderBy: { order: 'asc' } },
+            matchPreferences: true,
+        },
+    });
+
+    if (!user) {
+        throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    }
+
+    return user;
+}
+
+export async function getPublicProfile(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            profile: true,
+            photos: { orderBy: { order: 'asc' } },
+        },
+    });
+
+    if (!user || !user.profile) {
+        throw Object.assign(new Error('Profile not found'), { statusCode: 404 });
+    }
+
+    return {
+        id: user.id,
+        role: user.role,
+        isVerified: user.isVerified,
+        profile: user.profile,
+        photos: user.photos,
+    };
+}
+
+export async function updateProfile(userId: string, data: {
+    firstName?: string;
+    lastName?: string;
+    age?: number;
+    gender?: 'male' | 'female';
+    location?: string;
+    rite?: Rite;
+    parish?: string;
+    bio?: string;
+    education?: string;
+    dietaryPreference?: string;
+    hobbies?: string[];
+    orthodoxBridge?: boolean;
+    strictKnanaya?: boolean;
+}) {
+    let profile = await prisma.profile.findUnique({ where: { userId } });
+
+    if (profile) {
+        profile = await prisma.profile.update({
+            where: { userId },
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
+        });
+    } else {
+        profile = await prisma.profile.create({
+            data: {
+                userId,
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+                age: data.age || 25,
+                gender: data.gender || 'male',
+                location: data.location || '',
+                rite: data.rite || 'SYRO_MALABAR',
+                parish: data.parish,
+                bio: data.bio,
+                education: data.education,
+                dietaryPreference: data.dietaryPreference,
+                hobbies: data.hobbies || [],
+                orthodoxBridge: data.orthodoxBridge ?? false,
+                strictKnanaya: data.strictKnanaya ?? false,
+            },
+        });
+    }
+
+    const completeness = calculateProfileCompleteness(profile);
+    await prisma.profile.update({
+        where: { userId },
+        data: { profileComplete: completeness },
+    });
+
+    return profile;
+}
+
+function calculateProfileCompleteness(profile: {
+    firstName: string;
+    lastName: string;
+    age: number;
+    location: string;
+    bio: string | null;
+    parish: string | null;
+    education: string | null;
+    hobbies: string[];
+}): number {
+    let filled = 0;
+    const total = 8;
+
+    if (profile.firstName) filled++;
+    if (profile.lastName) filled++;
+    if (profile.age) filled++;
+    if (profile.location) filled++;
+    if (profile.bio) filled++;
+    if (profile.parish) filled++;
+    if (profile.education) filled++;
+    if (profile.hobbies.length > 0) filled++;
+
+    return Math.round((filled / total) * 100);
+}
+
+export async function updatePreferences(userId: string, data: {
+    minAge?: number;
+    maxAge?: number;
+    preferredRites?: Rite[];
+    preferredEducation?: string;
+    preferredDiet?: string;
+    orthodoxBridgeRequired?: boolean;
+    strictKnanayaRequired?: boolean;
+}) {
+    let prefs = await prisma.matchPreferences.findUnique({ where: { userId } });
+
+    if (prefs) {
+        prefs = await prisma.matchPreferences.update({
+            where: { userId },
+            data,
+        });
+    } else {
+        prefs = await prisma.matchPreferences.create({
+            data: {
+                userId,
+                minAge: data.minAge ?? 21,
+                maxAge: data.maxAge ?? 40,
+                preferredRites: data.preferredRites || [],
+                orthodoxBridgeRequired: data.orthodoxBridgeRequired ?? false,
+                strictKnanayaRequired: data.strictKnanayaRequired ?? false,
+                preferredEducation: data.preferredEducation,
+                preferredDiet: data.preferredDiet,
+            },
+        });
+    }
+
+    return prefs;
+}
+
+export async function getPreferences(userId: string) {
+    return prisma.matchPreferences.findUnique({ where: { userId } });
+}
+
+export async function saveOnboardingResponse(
+    userId: string,
+    step: number,
+    question: string,
+    answer: string
+) {
+    return prisma.onboardingResponse.create({
+        data: { userId, step, question, answer },
+    });
+}
+
+export async function toggleGhostMode(userId: string, enabled: boolean) {
+    return prisma.user.update({
+        where: { id: userId },
+        data: { ghostMode: enabled },
+    });
+}

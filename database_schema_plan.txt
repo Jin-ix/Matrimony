@@ -1,0 +1,498 @@
+# Indian Catholic Matrimony — Complete Database Schema Plan
+
+> **Database**: PostgreSQL (via Prisma ORM)
+> **ID Strategy**: CUID strings on all tables
+> **Timestamps**: `createdAt` / `updatedAt` with Prisma auto-management
+
+---
+
+## Overview
+
+The backend requires **1 database** with **14 tables** and **6 enums**. The schema is organized into 7 functional domains:
+
+```mermaid
+graph LR
+  A[Auth & Users] --> B[Profiles & Photos]
+  B --> C[Discovery & Matching]
+  C --> D[Interactions]
+  D --> E[Messaging]
+  A --> F[Kitchen Table]
+  A --> G[Notifications & Onboarding]
+```
+
+---
+
+## Enums
+
+| Enum | Values | Used By |
+|------|--------|---------|
+| **UserRole** | `candidate`, `scout` | `User.role`, `KitchenTableMember.role`, `KitchenMessage.senderRole` |
+| **Gender** | `male`, `female` | `Profile.gender` |
+| **Rite** | `SYRO_MALABAR`, `LATIN`, `KNANAYA_CATHOLIC`, `MALANKARA_ORTHODOX`, `SYRO_MALANKARA`, `OTHER` | `Profile.rite`, `MatchPreferences.preferredRites` |
+| **InteractionType** | `interest`, [pass](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#70-83), [recommend](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#84-121) | `Interest.type` |
+| **NotificationType** | `new_interest`, `mutual_match`, `new_message`, `profile_verified`, `scout_recommendation`, `kitchen_table` | `Notification.type` |
+
+---
+
+## Domain 1 — Authentication & Users
+
+### Table: [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2)
+
+The central identity table. Supports phone, email, or LinkedIn-based authentication.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | Unique user identifier |
+| `phone` | `String?` | **UNIQUE**, indexed | Phone number (primary auth) |
+| `email` | `String?` | **UNIQUE**, indexed | Email address (alternative auth) |
+| `passwordHash` | `String?` | — | bcrypt-hashed password |
+| `role` | [UserRole](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) | default `candidate` | `candidate` (self) vs `scout` (family) |
+| `isVerified` | `Boolean` | default `false` | Profile verified (LinkedIn link sets `true`) |
+| `isPhoneVerified` | `Boolean` | default `false` | OTP phone verification flag |
+| `linkedInId` | `String?` | **UNIQUE** | LinkedIn OAuth ID for verification |
+| `ghostMode` | `Boolean` | default `false` | Hides profile from discovery feed |
+| [refreshToken](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/auth.service.ts#94-116) | `String?` | — | JWT refresh token (single-session rotation) |
+| `createdAt` | `DateTime` | auto `now()` | Registration timestamp |
+| `updatedAt` | `DateTime` | auto `@updatedAt` | Last modification |
+
+**Indexes**: `email`, `phone`
+
+**Business Rules**:
+- At least one of `phone` or `email` must be provided during registration
+- `passwordHash` is required for phone/email auth; `null` for OAuth-only users
+- Setting `linkedInId` automatically marks `isVerified = true`
+- [refreshToken](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/auth.service.ts#94-116) is rotated on every token refresh; set to `null` on logout
+- `ghostMode = true` excludes the user from all discovery queries
+
+**Relationships**:
+- Has one [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20), one `MatchPreferences`, one [NotificationPreferences](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/notification.service.ts#67-85)
+- Has many `Photo[]`, `Interest[]` (sent & received & recommended), `ConversationParticipant[]`, `Message[]`, `KitchenTableMember[]`, `KitchenMessage[]`, `Notification[]`, `OnboardingResponse[]`
+
+---
+
+## Domain 2 — Profile & Media
+
+### Table: [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20)
+
+Detailed profile information collected during onboarding and editable via settings.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | **UNIQUE**, FK → `User.id` (CASCADE) | Owning user |
+| `firstName` | `String` | NOT NULL | — |
+| `lastName` | `String` | NOT NULL | — |
+| [age](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) | [Int](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | NOT NULL | Age in years |
+| `gender` | [Gender](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#2-3) | NOT NULL | `male` / `female` |
+| `location` | `String` | NOT NULL | City or region |
+| `rite` | [Rite](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) | NOT NULL | Catholic rite affiliation |
+| `parish` | `String?` | — | Home parish name |
+| `bio` | `String?` | — | Free-text self description |
+| `education` | `String?` | — | Highest education level |
+| `dietaryPreference` | `String?` | — | Vegetarian / Non-Veg / etc. |
+| `hobbies` | `String[]` | default `[]` | Array of hobby tags |
+| `orthodoxBridge` | `Boolean` | default `false` | Open to inter-rite matches |
+| `strictKnanaya` | `Boolean` | default `false` | Knanaya-only preference |
+| `profileComplete` | `Float` | default `0` | Completeness % (0–100) |
+| `createdAt` | `DateTime` | auto `now()` | — |
+| `updatedAt` | `DateTime` | auto `@updatedAt` | — |
+
+**Indexes**: `rite`, [age](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158), `gender` (accelerate discovery filtering)
+
+**Business Rules**:
+- One-to-one with [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2); ON DELETE CASCADE
+- `profileComplete` is auto-calculated from 8 fields: `firstName`, `lastName`, [age](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158), `location`, `bio`, `parish`, `education`, `hobbies` → each filled = +12.5%
+- Discovery feed only returns profiles where `user.ghostMode = false`
+- `strictKnanaya = true` overrides `rite` filter to enforce `KNANAYA_CATHOLIC`
+
+---
+
+### Table: `Photo`
+
+User uploaded images (Cloudinary integration).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | FK → `User.id` (CASCADE), indexed | Owning user |
+| `url` | `String` | NOT NULL | Cloudinary URL |
+| `publicId` | `String?` | — | Cloudinary public ID for deletion |
+| `isPrimary` | `Boolean` | default `false` | Main display photo |
+| `order` | [Int](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | default `0` | Display ordering |
+| `createdAt` | `DateTime` | auto `now()` | Upload timestamp |
+
+**Index**: `userId`
+
+**Business Rules**:
+- Only one photo per user should have `isPrimary = true` (enforced in app logic, not DB constraint)
+- Primary photo is used in match cards and conversation lists
+- ON DELETE CASCADE when user is deleted
+
+---
+
+## Domain 3 — Discovery & Match Preferences
+
+### Table: `MatchPreferences`
+
+User-configured filters that influence the discovery feed.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | **UNIQUE**, FK → `User.id` (CASCADE) | — |
+| `minAge` | [Int](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | default `21` | Minimum partner age |
+| `maxAge` | [Int](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | default `40` | Maximum partner age |
+| `preferredRites` | `Rite[]` | default `[]` | Accepted rite affiliations (empty = any) |
+| `preferredEducation` | `String?` | — | Desired education level |
+| `preferredDiet` | `String?` | — | Dietary preference filter |
+| `orthodoxBridgeRequired` | `Boolean` | default `false` | Must match orthodoxBridge |
+| `strictKnanayaRequired` | `Boolean` | default `false` | Must match strictKnanaya |
+| `createdAt` | `DateTime` | auto `now()` | — |
+| `updatedAt` | `DateTime` | auto `@updatedAt` | — |
+
+**Business Rules**:
+- One-to-one with [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2); created via upsert
+- Used in compatibility scoring (green/yellow/red) alongside profile data
+- Empty `preferredRites[]` means no rite filter applied
+
+**Discovery Feed Filtering Conditions**:
+
+```
+WHERE
+  profile.userId NOT IN (currentUserId, ...already-interacted-user-ids)
+  AND profile.user.ghostMode = false
+  AND (if rite filter)       → profile.rite = :rite
+  AND (if orthodoxBridge)    → profile.orthodoxBridge = true
+  AND (if strictKnanaya)     → profile.rite = 'KNANAYA_CATHOLIC'
+  AND (if minAge)            → profile.age >= :minAge
+  AND (if maxAge)            → profile.age <= :maxAge
+  AND (if education)         → profile.education = :education
+  AND (if diet)              → profile.dietaryPreference = :diet
+ORDER BY profile.createdAt DESC
+LIMIT :limit (cursor-based pagination)
+```
+
+---
+
+## Domain 4 — Interactions (Interest / Pass / Recommend)
+
+### Table: [Interest](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#4-69)
+
+Records all user-to-user interactions in the discovery flow.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `fromUserId` | `String` | FK → `User.id` (CASCADE), indexed | User who initiated |
+| `toUserId` | `String` | FK → `User.id` (CASCADE), indexed | Target user |
+| `type` | [InteractionType](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | NOT NULL | `interest` / [pass](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#70-83) / [recommend](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#84-121) |
+| `recommendedByUserId` | `String?` | FK → `User.id` | Scout who recommended (for `type = recommend`) |
+| `message` | `String?` | — | Optional personal message with interest/recommend |
+| `createdAt` | `DateTime` | auto `now()` | — |
+
+**Unique Constraint**: [(fromUserId, toUserId)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) — one interaction per pair
+**Indexes**: `toUserId`, `fromUserId`
+
+**Business Rules**:
+
+| Action | Condition | Side Effect |
+|--------|-----------|-------------|
+| **Express Interest** | No existing interaction from A→B | Creates interest record; checks for mutual match |
+| **Mutual Match** | A→B `interest` exists AND B→A `interest` exists | Auto-creates a [Conversation](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#5-6) with both users as participants; sends `mutual_match` notification to both |
+| **Pass** | No existing interaction from A→B | Creates pass record; profile hidden from feed |
+| **Recommend** (Scout) | No existing interaction | Creates recommend record with `recommendedByUserId`; sends `scout_recommendation` notification |
+| **Duplicate** | Existing interaction from A→B | Returns HTTP 409 Conflict |
+
+---
+
+## Domain 5 — 1:1 Messaging
+
+### Table: [Conversation](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#5-6)
+
+Created automatically on mutual match.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `isArchived` | `Boolean` | default `false` | Soft-close / archive flag |
+| `createdAt` | `DateTime` | auto `now()` | — |
+| `updatedAt` | `DateTime` | auto `@updatedAt` | Bumped on each new message |
+
+**Index**: `updatedAt` (for sorting conversation list)
+
+**Business Rules**:
+- Created only by the system upon mutual match detection
+- Archiving sends a notification to the other participant
+- Archived conversations are excluded from [getUserConversations](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#5-50) queries
+
+---
+
+### Table: `ConversationParticipant`
+
+Junction table linking users to conversations.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `conversationId` | `String` | FK → `Conversation.id` (CASCADE) | — |
+| `userId` | `String` | FK → `User.id` (CASCADE), indexed | — |
+| `joinedAt` | `DateTime` | auto `now()` | — |
+
+**Unique Constraint**: [(conversationId, userId)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14)
+**Index**: `userId`
+
+**Business Rules**:
+- Exactly 2 participants per conversation (1:1 messaging)
+- Participant check required before sending/reading messages (403 if not a member)
+
+---
+
+### Table: [Message](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158)
+
+Individual chat messages within a conversation.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `conversationId` | `String` | FK → `Conversation.id` (CASCADE) | — |
+| `senderId` | `String` | FK → `User.id` (CASCADE), indexed | — |
+| `text` | `String` | NOT NULL | Message content |
+| `flagged` | `Boolean` | default `false` | Auto-moderation flag |
+| `flagReason` | `String?` | — | Keyword-based moderation reason |
+| `createdAt` | `DateTime` | auto `now()` | — |
+
+**Composite Index**: [(conversationId, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) — efficient message pagination
+**Index**: `senderId`
+
+**Business Rules**:
+- Every message runs through `moderateMessage()` before storage:
+  - Scans for abusive/inappropriate keywords
+  - Sets `flagged = true` + `flagReason` if triggered
+- Sends `new_message` notification to the other participant (respecting notification preferences)
+- Messages are fetched in reverse-chronological order with cursor-based pagination
+
+---
+
+## Domain 6 — Kitchen Table (Family Collaboration)
+
+### Table: [KitchenTable](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#117-136)
+
+A family discussion room created around a specific match profile.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `name` | `String` | NOT NULL | Auto-generated: `"Discussion about {firstName}"` |
+| `matchProfileId` | `String` | indexed | The `User.id` of the match being discussed |
+| `createdAt` | `DateTime` | auto `now()` | — |
+| `updatedAt` | `DateTime` | auto `@updatedAt` | Bumped on each new message |
+
+**Index**: `matchProfileId`
+
+**Business Rules**:
+- Created on-demand via [getOrCreateKitchenTable(matchProfileId, userId)](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#4-47)
+- Multiple Kitchen Tables can exist per user (one per match being discussed)
+- The creator is auto-added as a `candidate` member
+
+---
+
+### Table: [KitchenTableMember](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#137-163)
+
+Members of a Kitchen Table discussion.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `kitchenTableId` | `String` | FK → `KitchenTable.id` (CASCADE) | — |
+| `userId` | `String` | FK → `User.id` (CASCADE), indexed | — |
+| `role` | [UserRole](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) | default `scout` | `candidate` (the match-seeker) or `scout` (family) |
+| `joinedAt` | `DateTime` | auto `now()` | — |
+
+**Unique Constraint**: [(kitchenTableId, userId)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14)
+**Index**: `userId`
+
+**Business Rules**:
+- Only existing members can invite new members (checked via `inviterId`)
+- Duplicate membership returns HTTP 409
+- New members default to `scout` role
+
+---
+
+### Table: [KitchenMessage](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#77-116)
+
+Messages within a Kitchen Table discussion.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `kitchenTableId` | `String` | FK → `KitchenTable.id` (CASCADE) | — |
+| `senderId` | `String` | FK → `User.id` (CASCADE) | — |
+| `senderRole` | [UserRole](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) | NOT NULL | Denormalized for display |
+| `senderName` | `String` | NOT NULL | Denormalized for display |
+| `text` | `String` | NOT NULL | Message content |
+| `createdAt` | `DateTime` | auto `now()` | — |
+
+**Composite Index**: [(kitchenTableId, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) — efficient message pagination
+
+**Business Rules**:
+- Sender must be a member of the Kitchen Table (403 if not)
+- `senderRole` and `senderName` are stored denormalized to avoid extra joins on read
+- Sending a message bumps the parent `KitchenTable.updatedAt`
+
+---
+
+## Domain 7 — Notifications & Settings
+
+### Table: [Notification](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#15-22)
+
+In-app notification feed.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | FK → `User.id` (CASCADE) | Recipient |
+| `type` | [NotificationType](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#15-22) | NOT NULL | Category for filtering/routing |
+| `title` | `String` | NOT NULL | Display title (e.g., "It's a Match! 💍") |
+| `description` | `String` | NOT NULL | Display body text |
+| `isRead` | `Boolean` | default `false` | Read/unread status |
+| `relatedId` | `String?` | — | Contextual link (conversationId, interestId, etc.) |
+| `createdAt` | `DateTime` | auto `now()` | — |
+
+**Composite Index**: [(userId, isRead, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) — efficient unread-first queries
+
+**Business Rules**:
+
+| Trigger Event | Notification Type | Sent To |
+|---------------|-------------------|---------|
+| User A expresses interest in B | `new_interest` | User B |
+| Mutual match detected | `mutual_match` | Both users |
+| New message in conversation | `new_message` | Other participant |
+| LinkedIn verification | `profile_verified` | The verified user |
+| Scout recommends a profile | `scout_recommendation` | Target user |
+| Kitchen Table activity | `kitchen_table` | Table members |
+
+- Notifications are **gated** by [NotificationPreferences](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/notification.service.ts#67-85):
+  - `new_message` → blocked if `directMessages = false`
+  - `mutual_match` / `new_interest` → blocked if `newMatches = false`
+  - `scout_recommendation` → blocked if `familyRecommendations = false`
+- [markAllAsRead](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/notification.service.ts#60-66) bulk-updates `isRead = true` for all unread notifications of a user
+
+---
+
+### Table: [NotificationPreferences](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/notification.service.ts#67-85)
+
+Per-user notification channel and category toggles.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | **UNIQUE**, FK → `User.id` (CASCADE) | — |
+| `newMatches` | `Boolean` | default `true` | Receive match & interest notifications |
+| `directMessages` | `Boolean` | default `true` | Receive new message notifications |
+| `familyRecommendations` | `Boolean` | default `true` | Receive scout recommendation notifications |
+| `emailEnabled` | `Boolean` | default `true` | Allow email delivery channel |
+| `pushEnabled` | `Boolean` | default `false` | Allow push notification channel |
+| `smsEnabled` | `Boolean` | default `true` | Allow SMS delivery channel |
+
+**Business Rules**:
+- Auto-created during user registration with all defaults
+- Lazily created (upsert) if missing when queried
+- Categories (`newMatches`, `directMessages`, `familyRecommendations`) control **whether** a notification is created
+- Channels (`emailEnabled`, `pushEnabled`, `smsEnabled`) control **how** notifications are delivered
+
+---
+
+## Domain 8 — Onboarding
+
+### Table: [OnboardingResponse](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#161-171)
+
+Stores the conversational agent Q&A during onboarding (7 steps per role).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `String` | **PK**, default `cuid()` | — |
+| `userId` | `String` | FK → `User.id` (CASCADE), indexed | — |
+| `step` | [Int](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#4-5) | NOT NULL | Step number (1–7) |
+| `question` | `String` | NOT NULL | The question that was asked |
+| `answer` | `String` | NOT NULL | The user's free-text response |
+| `createdAt` | `DateTime` | auto `now()` | — |
+
+**Index**: `userId`
+
+**Business Rules**:
+- Steps 1–7 have different questions for `candidate` vs `scout` roles
+- Auto-extraction logic parses answers to populate [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20) fields:
+  - Step 1 → extracts [age](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) (regex `\b\d{2}\b`)
+  - Step 2 → extracts `education` (keyword matching)
+  - Step 5 → extracts `hobbies` (keyword matching from a predefined list)
+- All responses are retrievable for onboarding summary
+
+---
+
+## Relationship Summary Diagram
+
+```mermaid
+erDiagram
+    User ||--o| Profile : "has one"
+    User ||--o| MatchPreferences : "has one"
+    User ||--o| NotificationPreferences : "has one"
+    User ||--o{ Photo : "has many"
+    User ||--o{ Interest : "sends"
+    User ||--o{ Interest : "receives"
+    User ||--o{ ConversationParticipant : "joins"
+    User ||--o{ Message : "sends"
+    User ||--o{ KitchenTableMember : "joins"
+    User ||--o{ KitchenMessage : "sends"
+    User ||--o{ Notification : "receives"
+    User ||--o{ OnboardingResponse : "submits"
+    Conversation ||--o{ ConversationParticipant : "has"
+    Conversation ||--o{ Message : "contains"
+    KitchenTable ||--o{ KitchenTableMember : "has"
+    KitchenTable ||--o{ KitchenMessage : "contains"
+    Interest }o--o| User : "recommendedBy"
+```
+
+---
+
+## Cascade Deletion Chart
+
+When a [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) is deleted, the following cascade:
+
+| Table | Records Deleted |
+|-------|----------------|
+| [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20) | User's profile |
+| `Photo` | All user photos |
+| `MatchPreferences` | User's preferences |
+| [NotificationPreferences](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/notification.service.ts#67-85) | User's notification settings |
+| [Interest](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#4-69) (sent) | All interests sent by user |
+| [Interest](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#4-69) (received) | All interests received by user |
+| `ConversationParticipant` | User's conversation memberships |
+| [Message](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) | All messages sent by user |
+| [KitchenTableMember](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#137-163) | User's kitchen table memberships |
+| [KitchenMessage](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#77-116) | All kitchen messages sent |
+| [Notification](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#15-22) | All user's notifications |
+| [OnboardingResponse](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#161-171) | All onboarding data |
+
+---
+
+## Index Strategy Summary
+
+| Table | Index Columns | Purpose |
+|-------|---------------|---------|
+| [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) | `email` | Login lookup |
+| [User](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#1-2) | `phone` | Login lookup |
+| [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20) | `rite` | Discovery rite filter |
+| [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20) | [age](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) | Discovery age range filter |
+| [Profile](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#4-20) | `gender` | Discovery gender filter |
+| `Photo` | `userId` | Fetch user photos |
+| [Interest](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#4-69) | `toUserId` | Received interests query |
+| [Interest](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/interaction.service.ts#4-69) | `fromUserId` | Sent interests query |
+| [Conversation](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#5-6) | `updatedAt` | Sort conversations (most recent) |
+| `ConversationParticipant` | `userId` | Find user's conversations |
+| [Message](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) | [(conversationId, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) | Paginate messages efficiently |
+| [Message](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/conversation.service.ts#98-158) | `senderId` | Query messages by sender |
+| [KitchenTable](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#117-136) | `matchProfileId` | Find tables for a match |
+| [KitchenTableMember](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#137-163) | `userId` | Find user's kitchen tables |
+| [KitchenMessage](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/kitchen.service.ts#77-116) | [(kitchenTableId, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) | Paginate kitchen messages |
+| [Notification](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#15-22) | [(userId, isRead, createdAt)](file:///e:/Indian%20Catholic%20Matrimony/server/src/types/index.ts#7-14) | Unread-first, recent-first query |
+| [OnboardingResponse](file:///e:/Indian%20Catholic%20Matrimony/server/src/services/profile.service.ts#161-171) | `userId` | Fetch user's onboarding data |

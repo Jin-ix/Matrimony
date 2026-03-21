@@ -1,0 +1,82 @@
+import { SlidersHorizontal, MapPin, Church } from 'lucide-react';
+
+interface FilterControlBarProps {
+    orthodoxBridge: boolean;
+    setOrthodoxBridge: (val: boolean) => void;
+    strictKnanaya: boolean;
+    setStrictKnanaya: (val: boolean) => void;
+    activeRite: string | null;
+    setActiveRite: (val: string | null) => void;
+    onAdvancedFiltersClick?: () => void;
+}
+
+export default function FilterControlBar({
+    orthodoxBridge,
+    setOrthodoxBridge,
+    strictKnanaya,
+    setStrictKnanaya,
+    activeRite,
+    setActiveRite,
+    onAdvancedFiltersClick
+}: FilterControlBarProps) {
+
+    return (
+        <div className="sticky top-[73px] z-30 w-full border-b border-gold-200 bg-white/95 px-6 py-3 backdrop-blur-xl shadow-sm">
+            <div className="mx-auto flex max-w-7xl items-center justify-between">
+
+                {/* Left Side: Standard Filters */}
+                <div className="flex items-center space-x-4 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+                    <button
+                        onClick={onAdvancedFiltersClick}
+                        className="flex min-w-max items-center space-x-2 rounded-lg bg-sacred-offwhite px-4 py-2 text-sm font-medium text-sacred-dark border border-gray-200 hover:border-gold-300 transition-colors"
+                    >
+                        <SlidersHorizontal className="h-4 w-4" />
+                        <span>Filters</span>
+                    </button>
+
+                    <div className="h-6 w-px bg-gray-300"></div>
+
+                    <button
+                        onClick={() => setActiveRite(activeRite === 'Syro-Malabar Catholic' ? null : 'Syro-Malabar Catholic')}
+                        className={`flex items-center space-x-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-all duration-300 ${activeRite === 'Syro-Malabar Catholic'
+                            ? 'bg-gold-600 border-gold-700 text-white shadow-md'
+                            : 'border-gold-200 bg-gold-50 text-gold-800 hover:bg-gold-100'
+                            }`}
+                    >
+                        <Church className="h-4 w-4" />
+                        <span>Syro-Malabar</span>
+                    </button>
+
+                    <button className="flex items-center space-x-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 transition-transform hover:border-gold-300 hover:bg-sacred-offwhite">
+                        <MapPin className="h-4 w-4" />
+                        <span>Kerala, India + 500mi</span>
+                    </button>
+                </div>
+
+                {/* Right Side: Hard Boundaries Toggles */}
+                <div className="hidden lg:flex items-center space-x-6 pl-4 border-l border-gray-200">
+                    <label className="flex items-center space-x-3 cursor-pointer group">
+                        <span className="text-sm font-medium text-gray-700 group-hover:text-sacred-dark">Orthodox Bridge</span>
+                        <div
+                            onClick={() => setOrthodoxBridge(!orthodoxBridge)}
+                            className={`flex h-5 w-9 items-center rounded-full p-1 transition-colors ${orthodoxBridge ? 'bg-indigo-500' : 'bg-gray-300'}`}
+                        >
+                            <div className={`h-3 w-3 rounded-full bg-white shadow-md transition-transform ${orthodoxBridge ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </div>
+                    </label>
+
+                    <label className="flex items-center space-x-3 cursor-pointer group">
+                        <span className="text-sm font-medium text-gray-700 group-hover:text-sacred-dark">Strict Knanaya</span>
+                        <div
+                            onClick={() => setStrictKnanaya(!strictKnanaya)}
+                            className={`flex h-5 w-9 items-center rounded-full p-1 transition-colors ${strictKnanaya ? 'bg-gold-600' : 'bg-gray-300'}`}
+                        >
+                            <div className={`h-3 w-3 rounded-full bg-white shadow-md transition-transform ${strictKnanaya ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </div>
+                    </label>
+                </div>
+
+            </div>
+        </div>
+    );
+}
