@@ -23,4 +23,8 @@ router.post('/change-password', authMiddleware, validate(changePasswordSchema), 
 router.get('/linkedin', authController.linkedInAuth);
 router.get('/linkedin/callback', optionalAuth, authController.linkedInCallback);
 
+// Parent-Candidate linking
+router.post('/link-parent', authController.linkParent);
+router.get('/my-link', authMiddleware, authController.getMyLink);
+
 export default router;

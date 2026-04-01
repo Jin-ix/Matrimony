@@ -41,6 +41,12 @@ export async function getDiscoveryFeed(
         user: { ghostMode: false },
     };
 
+    if (currentUser.profile.gender === 'male') {
+        where.gender = 'female';
+    } else if (currentUser.profile.gender === 'female') {
+        where.gender = 'male';
+    }
+
     if (filters.rite) {
         where.rite = filters.rite as Rite;
     }

@@ -46,32 +46,44 @@ enum NotificationType {
 // ─── User ─────────────────────────────────────────────────
 
 model User {
-  id              String    @id @default(cuid())
-  phone           String?   @unique
-  email           String?   @unique
+  id              String   @id @default(cuid())
+  phone           String?  @unique
+  email           String?  @unique
   passwordHash    String?
-  role            UserRole  @default(candidate)
-  isVerified      Boolean   @default(false)
-  isPhoneVerified Boolean   @default(false)
-  linkedInId      String?   @unique
-  ghostMode       Boolean   @default(false)
+  role            UserRole @default(candidate)
+  isVerified      Boolean  @default(false)
+  isPhoneVerified Boolean  @default(false)
+  linkedInId      String?  @unique
+  ghostMode       Boolean  @default(false)
   refreshToken    String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  profile               Profile?
-  photos                Photo[]
-  matchPreferences      MatchPreferences?
-  notificationPrefs     NotificationPreferences?
-  sentInteractions      Interest[]             @relation("SentInteractions")
-  receivedInteractions  Interest[]             @relation("ReceivedInteractions")
-  recommendedBy         Interest[]             @relation("RecommendedBy")
-  conversationMembers   ConversationParticipant[]
-  messages              Message[]
-  kitchenTableMembers   KitchenTableMember[]
-  kitchenMessages       KitchenMessage[]
-  notifications         Notification[]
-  onboardingResponses   OnboardingResponse[]
+  profile              Profile?
+  photos               Photo[]
+  matchPreferences     MatchPreferences?
+  notificationPrefs    NotificationPreferences?
+  sentInteractions     Interest[]                @relation("SentInteractions")
+  receivedInteractions Interest[]                @relation("ReceivedInteractions")
+  recommendedBy        Interest[]                @relation("RecommendedBy")
+  conversationMembers  ConversationParticipant[]
+  messages             Message[]
+  kitchenTableMembers  KitchenTableMember[]
+  kitchenMessages      KitchenMessage[]
+  notifications        Notification[]
+  onboardingResponses  OnboardingResponse[]
+
+  // Kitchen Table 2.0 & Compatibility Report Relations
+  familyMatchChatAsA  FamilyMatchChat[]    @relation("CandidateA")
+  familyMatchChatAsB  FamilyMatchChat[]    @relation("CandidateB")
+  familyMatchMembers  FamilyMatchMember[]
+  familyMatchMessages FamilyMatchMessage[]
+  matchCompAsA        MatchCompatibility[] @relation("MatchCompUserA")
+  matchCompAsB        MatchCompatibility[] @relation("MatchCompUserB")
+
+  // Parent-Candidate relationship
+  parentLinks    ParentCandidateLink[] @relation("ParentLinks")
+  candidateLinks ParentCandidateLink[] @relation("CandidateLinks")
 
   @@index([email])
   @@index([phone])
@@ -80,8 +92,8 @@ model User {
 // ─── Profile ──────────────────────────────────────────────
 
 model Profile {
-  id                String    @id @default(cuid())
-  userId            String    @unique
+  id                String   @id @default(cuid())
+  userId            String   @unique
   firstName         String
   lastName          String
   age               Int
@@ -92,27 +104,32 @@ model Profile {
   bio               String?
   education         String?
   dietaryPreference String?
-  hobbies           String[]  @default([])
-  orthodoxBridge    Boolean   @default(false)
-  strictKnanaya     Boolean   @default(false)
-  profileComplete   Float     @default(0)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  hobbies           String[] @default([])
+  orthodoxBridge    Boolean  @default(false)
+  strictKnanaya     Boolean  @default(false)
+  profileComplete   Float    @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Comprehensive Matchmaking Fields
-  maritalStatus     String    @default("Never Married")
-  height            String?
-  motherTongue      String?
-  familyValues      String?
-  spiritualValues   String?
+  maritalStatus      String   @default("Never Married")
+  height             String?
+  motherTongue       String?
+  familyValues       String?
+  spiritualValues    String?
   sacramentsReceived String[] @default([])
-  occupation        String?
-  employer          String?
-  annualIncome      String?
-  smoke             Boolean?
-  drink             Boolean?
+  occupation         String?
+  employer           String?
+  annualIncome       String?
+  smoke              Boolean?
+  drink              Boolean?
 
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Soul DNA & Diaspora Bridge Fields
+  videoIcebreakerUrl String?
+  culturalScore      Float?
+  homeVisitPlan      Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([rite])
   @@index([age])
@@ -130,7 +147,7 @@ model Photo {
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -150,23 +167,23 @@ model MatchPreferences {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ─── Interest / Interaction ───────────────────────────────
 
 model Interest {
-  id                String          @id @default(cuid())
-  fromUserId        String
-  toUserId          String
-  type              InteractionType
+  id                  String          @id @default(cuid())
+  fromUserId          String
+  toUserId            String
+  type                InteractionType
   recommendedByUserId String?
-  message           String?
-  createdAt         DateTime        @default(now())
+  message             String?
+  createdAt           DateTime        @default(now())
 
-  fromUser          User            @relation("SentInteractions", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUser            User            @relation("ReceivedInteractions", fields: [toUserId], references: [id], onDelete: Cascade)
-  recommendedBy     User?           @relation("RecommendedBy", fields: [recommendedByUserId], references: [id])
+  fromUser      User  @relation("SentInteractions", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser        User  @relation("ReceivedInteractions", fields: [toUserId], references: [id], onDelete: Cascade)
+  recommendedBy User? @relation("RecommendedBy", fields: [recommendedByUserId], references: [id])
 
   @@unique([fromUserId, toUserId])
   @@index([toUserId])
@@ -176,10 +193,12 @@ model Interest {
 // ─── Conversation (1:1 Messaging) ─────────────────────────
 
 model Conversation {
-  id           String   @id @default(cuid())
-  isArchived   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(cuid())
+  isArchived       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  photosRevealedAt DateTime?
+  videoRevealedAt  DateTime?
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -188,29 +207,29 @@ model Conversation {
 }
 
 model ConversationParticipant {
-  id              String       @id @default(cuid())
-  conversationId  String
-  userId          String
-  joinedAt        DateTime     @default(now())
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
   @@index([userId])
 }
 
 model Message {
-  id              String       @id @default(cuid())
-  conversationId  String
-  senderId        String
-  text            String
-  flagged         Boolean      @default(false)
-  flagReason      String?
-  createdAt       DateTime     @default(now())
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String
+  flagged        Boolean  @default(false)
+  flagReason     String?
+  createdAt      DateTime @default(now())
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender          User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@index([senderId])
@@ -219,43 +238,43 @@ model Message {
 // ─── Kitchen Table (Family Collaboration) ─────────────────
 
 model KitchenTable {
-  id              String   @id @default(cuid())
-  name            String
-  matchProfileId  String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  matchProfileId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  members         KitchenTableMember[]
-  messages        KitchenMessage[]
+  members  KitchenTableMember[]
+  messages KitchenMessage[]
 
   @@index([matchProfileId])
 }
 
 model KitchenTableMember {
-  id              String       @id @default(cuid())
-  kitchenTableId  String
-  userId          String
-  role            UserRole     @default(scout)
-  joinedAt        DateTime     @default(now())
+  id             String   @id @default(cuid())
+  kitchenTableId String
+  userId         String
+  role           UserRole @default(scout)
+  joinedAt       DateTime @default(now())
 
-  kitchenTable    KitchenTable @relation(fields: [kitchenTableId], references: [id], onDelete: Cascade)
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kitchenTable KitchenTable @relation(fields: [kitchenTableId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([kitchenTableId, userId])
   @@index([userId])
 }
 
 model KitchenMessage {
-  id              String       @id @default(cuid())
-  kitchenTableId  String
-  senderId        String
-  senderRole      UserRole
-  senderName      String
-  text            String
-  createdAt       DateTime     @default(now())
+  id             String   @id @default(cuid())
+  kitchenTableId String
+  senderId       String
+  senderRole     UserRole
+  senderName     String
+  text           String
+  createdAt      DateTime @default(now())
 
-  kitchenTable    KitchenTable @relation(fields: [kitchenTableId], references: [id], onDelete: Cascade)
-  sender          User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  kitchenTable KitchenTable @relation(fields: [kitchenTableId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([kitchenTableId, createdAt])
 }
@@ -272,7 +291,7 @@ model Notification {
   relatedId   String?
   createdAt   DateTime         @default(now())
 
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt])
 }
@@ -287,7 +306,7 @@ model NotificationPreferences {
   pushEnabled           Boolean @default(false)
   smsEnabled            Boolean @default(true)
 
-  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ─── Onboarding ───────────────────────────────────────────
@@ -300,7 +319,90 @@ model OnboardingResponse {
   answer    String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Kitchen Table 2.0 (Dual Family Chat) ─────────────────
+
+model FamilyMatchChat {
+  id           String   @id @default(cuid())
+  candidateAId String
+  candidateBId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  members  FamilyMatchMember[]
+  messages FamilyMatchMessage[]
+
+  candidateA User @relation("CandidateA", fields: [candidateAId], references: [id], onDelete: Cascade)
+  candidateB User @relation("CandidateB", fields: [candidateBId], references: [id], onDelete: Cascade)
+
+  @@index([candidateAId, candidateBId])
+}
+
+model FamilyMatchMember {
+  id                String   @id @default(cuid())
+  familyMatchChatId String
+  userId            String
+  role              UserRole @default(scout)
+  joinedAt          DateTime @default(now())
+
+  familyMatchChat FamilyMatchChat @relation(fields: [familyMatchChatId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyMatchChatId, userId])
+  @@index([userId])
+}
+
+model FamilyMatchMessage {
+  id                String   @id @default(cuid())
+  familyMatchChatId String
+  senderId          String
+  senderRole        UserRole
+  senderName        String
+  text              String
+  createdAt         DateTime @default(now())
+
+  familyMatchChat FamilyMatchChat @relation(fields: [familyMatchChatId], references: [id], onDelete: Cascade)
+  sender          User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([familyMatchChatId, createdAt])
+}
+
+// ─── Compatibility Report ─────────────────────────────────
+
+model MatchCompatibility {
+  id               String   @id @default(cuid())
+  userAId          String
+  userBId          String
+  familyScore      Float?
+  individualScore  Float?
+  culturalDistance Float?
+  reportData       Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  userA User @relation("MatchCompUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("MatchCompUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+}
+
+// ─── Parent–Candidate Link ────────────────────────────────
+// Ties a scout (parent) user to a candidate (child) user so
+// they automatically share the same Kitchen Table room.
+
+model ParentCandidateLink {
+  id          String   @id @default(cuid())
+  parentId    String
+  candidateId String
+  createdAt   DateTime @default(now())
+
+  parent    User @relation("ParentLinks",    fields: [parentId],    references: [id], onDelete: Cascade)
+  candidate User @relation("CandidateLinks", fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, candidateId])
+  @@index([parentId])
+  @@index([candidateId])
 }

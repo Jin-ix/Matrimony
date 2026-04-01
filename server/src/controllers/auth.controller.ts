@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import * as otpService from '../services/otp.service.js';
 import * as linkedinService from '../services/linkedin.service.js';
+import prisma from '../config/database.js';
+
 
 export async function register(req: Request, res: Response, next: NextFunction) {
     try {
@@ -97,6 +99,91 @@ export async function linkedInCallback(req: Request, res: Response, next: NextFu
         } else {
             res.json({ linkedInData });
         }
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ─── Parent–Candidate Link ─────────────────────────────────
+// POST /api/auth/link-parent  { parentId, candidateId }
+export async function linkParent(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { parentId, candidateId } = req.body;
+        if (!parentId || !candidateId) {
+            res.status(400).json({ error: 'parentId and candidateId are required' });
+            return;
+        }
+
+        // Verify both users exist
+        const [parent, candidate] = await Promise.all([
+            prisma.user.findUnique({ where: { id: parentId } }),
+            prisma.user.findUnique({ where: { id: candidateId } }),
+        ]);
+        if (!parent) { res.status(404).json({ error: 'Parent user not found' }); return; }
+        if (!candidate) { res.status(404).json({ error: 'Candidate user not found' }); return; }
+
+        const link = await prisma.parentCandidateLink.upsert({
+            where: { parentId_candidateId: { parentId, candidateId } },
+            update: {},
+            create: { parentId, candidateId },
+        });
+
+        res.status(201).json({ success: true, link });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// GET /api/auth/my-link  — returns the linked partner for the authenticated user
+export async function getMyLink(req: Request, res: Response, next: NextFunction) {
+    try {
+        const userId = req.user!.userId;
+
+        // Check if this user is a parent
+        const asParent = await prisma.parentCandidateLink.findFirst({
+            where: { parentId: userId },
+            include: {
+                candidate: {
+                    select: {
+                        id: true,
+                        role: true,
+                        email: true,
+                        profile: { select: { firstName: true, lastName: true } },
+                    },
+                },
+            },
+        });
+        if (asParent) {
+            return res.json({
+                role: 'parent',
+                linkedUserId: asParent.candidateId,
+                linkedUser: asParent.candidate,
+            });
+        }
+
+        // Check if this user is a candidate with a parent
+        const asCandidate = await prisma.parentCandidateLink.findFirst({
+            where: { candidateId: userId },
+            include: {
+                parent: {
+                    select: {
+                        id: true,
+                        role: true,
+                        email: true,
+                        profile: { select: { firstName: true, lastName: true } },
+                    },
+                },
+            },
+        });
+        if (asCandidate) {
+            return res.json({
+                role: 'candidate',
+                linkedUserId: asCandidate.parentId,
+                linkedUser: asCandidate.parent,
+            });
+        }
+
+        res.json({ role: null, linkedUserId: null, linkedUser: null });
     } catch (error) {
         next(error);
     }

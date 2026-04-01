@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io, Socket } from 'socket.io-client';
 
 interface Message {
     id: string;
@@ -13,16 +14,50 @@ interface Message {
 export default function SecureChatFeed({
     currentUser,
     matchUser,
+    chatId,
+    initialMessages = [],
 }: {
     currentUser: { id: string; name: string };
     matchUser: { id: string; name: string; avatar: string };
+    chatId: string;
+    initialMessages?: Message[];
 }) {
-    const [messages, setMessages] = useState<Message[]>([
-        { id: '1', senderId: matchUser.id, text: 'Hi! I read your profile, it’s really wonderful how much you value family dinners.', timestamp: '10:00 AM' },
-    ]);
+    const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
     const [moderationWarning, setModerationWarning] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const socketRef = useRef<Socket | null>(null);
+
+    useEffect(() => {
+        setMessages(initialMessages);
+    }, [initialMessages]);
+
+    useEffect(() => {
+        const socket = io('http://localhost:3001/chat', { transports: ['websocket'] });
+        
+        socket.on('connect', () => {
+            socket.emit('chat:join', chatId);
+        });
+
+        socket.on('chat:message', (message: Message) => {
+            setMessages(prev => {
+                if (prev.some(m => m.id === message.id)) return prev;
+                return [...prev, message];
+            });
+        });
+
+        socket.on('chat:flagged', (data: any) => {
+            setModerationWarning(data.reason || 'Message flagged for moderation.');
+            setTimeout(() => setModerationWarning(null), 5000);
+        });
+
+        socketRef.current = socket;
+
+        return () => {
+            socket.emit('chat:leave', chatId);
+            socket.disconnect();
+        };
+    }, [chatId]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,21 +66,34 @@ export default function SecureChatFeed({
     const handleSend = () => {
         if (!input.trim()) return;
 
-        // Moderation Shield Mock
+        // Visual Optimistic Update Shield Check
         const suspiciousKeywords = ['address', 'bank', 'whatsapp', 'number', 'cash'];
         const isSuspicious = suspiciousKeywords.some(kw => input.toLowerCase().includes(kw));
 
         if (isSuspicious) {
             setModerationWarning('For your safety, please avoid sharing intimate personal details or moving off-platform too soon.');
-            // We still send the message but flag it in the UI (or block it in a real app)
         } else {
             setModerationWarning(null);
         }
 
-        setMessages((prev) => [
-            ...prev,
-            { id: Date.now().toString(), senderId: currentUser.id, text: input, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), flagged: isSuspicious },
-        ]);
+        const optimisticMessage: Message = {
+            id: 'temp-' + Date.now(),
+            senderId: currentUser.id,
+            text: input,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            flagged: isSuspicious,
+        };
+        
+        setMessages(prev => [...prev, optimisticMessage]);
+        
+        if (socketRef.current) {
+            socketRef.current.emit('chat:message', {
+                conversationId: chatId,
+                senderId: currentUser.id,
+                text: input,
+            });
+        }
+        
         setInput('');
     };
 

@@ -1,6 +1,7 @@
-import { Bell, User, Ghost, Settings, Church } from 'lucide-react';
+import { Bell, User, Ghost, Settings, Church, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '../../lib/notificationContext';
 
 interface TopNavigationProps {
     onProfileClick?: () => void;
@@ -11,6 +12,7 @@ interface TopNavigationProps {
 export default function TopNavigation({ onProfileClick, onNotificationsClick, onGhostModeToggle }: TopNavigationProps) {
     const [ghostMode, setGhostMode] = useState(false);
     const navigate = useNavigate();
+    const { unreadCount } = useNotifications();
 
     return (
         <nav className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-gold-200/50 bg-white/80 px-6 py-4 backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
@@ -42,12 +44,26 @@ export default function TopNavigation({ onProfileClick, onNotificationsClick, on
                     </div>
                 </div>
 
+                {/* Bell with live unread badge */}
                 <button
                     onClick={onNotificationsClick}
                     className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition-all duration-300 hover:bg-gold-50 hover:text-gold-600"
+                    aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
                 >
                     <Bell className="h-5 w-5" />
-                    <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+                    {unreadCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 ring-2 ring-white text-[9px] font-bold text-white animate-pulse">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                    )}
+                </button>
+
+                <button
+                    onClick={() => navigate('/kitchen-table')}
+                    title="Kitchen Table 2.0"
+                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gold-200 bg-gradient-to-br from-amber-50 to-gold-50 shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-md hover:border-gold-400 active:scale-95 group"
+                >
+                    <UtensilsCrossed className="h-4.5 w-4.5 text-gold-600 group-hover:text-gold-800 transition-colors" />
                 </button>
 
                 <button

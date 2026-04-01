@@ -69,3 +69,24 @@ export async function getIcebreaker(req: Request, res: Response, next: NextFunct
         next(error);
     }
 }
+
+export async function revealMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+        const conversationId = req.params.conversationId as string;
+        const type = req.body.type as 'photo' | 'video';
+        
+        if (!type || (type !== 'photo' && type !== 'video')) {
+           res.status(400).json({ error: 'type must be photo or video' });
+           return;
+        }
+
+        const result = await conversationService.revealMedia(
+            conversationId,
+            req.user!.userId,
+            type
+        );
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+}

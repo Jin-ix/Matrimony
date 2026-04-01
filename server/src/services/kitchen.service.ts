@@ -42,8 +42,44 @@ export async function getOrCreateKitchenTable(matchProfileId: string, userId: st
         });
     }
 
+    // ── Auto-add the linked parent or candidate ──────────────
+    // Look up ParentCandidateLink for this user (as parent or as candidate)
+    const linkAsParent = await prisma.parentCandidateLink.findFirst({
+        where: { parentId: userId },
+    });
+    const linkAsCandidate = await prisma.parentCandidateLink.findFirst({
+        where: { candidateId: userId },
+    });
+
+    const linkedUserId = linkAsParent?.candidateId ?? linkAsCandidate?.parentId ?? null;
+    const linkedRole: UserRole = linkAsParent ? 'candidate' : 'scout';
+
+    if (linkedUserId) {
+        const alreadyMember = table.members.some((m) => m.userId === linkedUserId);
+        if (!alreadyMember) {
+            await prisma.kitchenTableMember.upsert({
+                where: { kitchenTableId_userId: { kitchenTableId: table.id, userId: linkedUserId } },
+                update: {},
+                create: { kitchenTableId: table.id, userId: linkedUserId, role: linkedRole },
+            });
+
+            // Re-fetch to include the new member in the returned object
+            table = await prisma.kitchenTable.findUniqueOrThrow({
+                where: { id: table.id },
+                include: {
+                    members: {
+                        include: {
+                            user: { include: { profile: { select: { firstName: true, lastName: true } } } },
+                        },
+                    },
+                },
+            });
+        }
+    }
+
     return table;
 }
+
 
 export async function getKitchenTableMessages(
     kitchenTableId: string,

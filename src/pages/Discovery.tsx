@@ -9,9 +9,11 @@ import LandingAbout from '../components/onboarding/LandingAbout';
 import LandingHowItWorks from '../components/onboarding/LandingHowItWorks';
 import LandingServices from '../components/onboarding/LandingServices';
 import LandingCTA from '../components/onboarding/LandingCTA';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import { Heart, Sparkles, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useNotifications, type AppNotification } from '../lib/notificationContext';
 import { supabase } from '../lib/supabase';
 
 export default function Discovery() {
@@ -19,6 +21,10 @@ export default function Discovery() {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [liveToast, setLiveToast] = useState<AppNotification | null>(null);
+    const prevCountRef = useRef(0);
+    const { notifications } = useNotifications();
+    const navigate = useNavigate();
 
     const [orthodoxBridge, setOrthodoxBridge] = useState(false);
     const [strictKnanaya, setStrictKnanaya] = useState(false);
@@ -27,6 +33,19 @@ export default function Discovery() {
     // State for Banner customization
     const [userRole, setUserRole] = useState<string | null>(null);
     const [userGender, setUserGender] = useState<string | null>(null);
+
+    // Show live toast when a new notification arrives via socket
+    useEffect(() => {
+        if (notifications.length > prevCountRef.current) {
+            const newest = notifications[0];
+            if (newest && !newest.isRead) {
+                setLiveToast(newest);
+                const t = setTimeout(() => setLiveToast(null), 6000);
+                return () => clearTimeout(t);
+            }
+        }
+        prevCountRef.current = notifications.length;
+    }, [notifications]);
 
     // Auto-hide toast & setup user preferences
     useEffect(() => {
@@ -133,12 +152,83 @@ export default function Discovery() {
 
                 {toastMessage && (
                     <motion.div
+                        key="system-toast"
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="fixed top-24 left-1/2 z-[150] -translate-x-1/2 rounded-full border border-gold-200 bg-white shadow-lg px-6 py-3 font-medium text-sacred-dark"
                     >
                         {toastMessage}
+                    </motion.div>
+                )}
+
+                {/* Live Socket Notification Toast */}
+                {liveToast && (
+                    <motion.div
+                        key={liveToast.id}
+                        initial={{ opacity: 0, y: -32, scale: 0.93 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -16, scale: 0.96 }}
+                        transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+                        className={`fixed top-24 right-6 z-[200] flex items-start gap-4 rounded-2xl shadow-2xl border p-4 max-w-sm w-[calc(100vw-3rem)] ${
+                            liveToast.type === 'mutual_match'
+                                ? 'bg-gradient-to-br from-amber-900 to-stone-900 border-gold-500/40 text-white'
+                                : 'bg-white border-gray-200 text-sacred-dark'
+                        }`}
+                    >
+                        {/* Icon */}
+                        <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                            liveToast.type === 'mutual_match' ? 'bg-gold-500/20' : 'bg-rose-50'
+                        }`}>
+                            {liveToast.type === 'mutual_match'
+                                ? <Sparkles className="w-5 h-5 text-gold-400 fill-current" />
+                                : <Heart className="w-5 h-5 text-rose-500 fill-current" />
+                            }
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-sm ${
+                                liveToast.type === 'mutual_match' ? 'text-gold-300' : 'text-sacred-dark'
+                            }`}>{liveToast.title}</p>
+                            <p className={`text-xs mt-0.5 leading-relaxed ${
+                                liveToast.type === 'mutual_match' ? 'text-amber-200/80' : 'text-gray-500'
+                            }`}>{liveToast.description}</p>
+
+                            {liveToast.type === 'mutual_match' && liveToast.relatedId && (
+                                <button
+                                    onClick={() => {
+                                        setLiveToast(null);
+                                        navigate(`/messages/${liveToast.relatedId}`);
+                                    }}
+                                    className="mt-2 text-xs font-semibold text-gold-400 hover:text-gold-300 underline underline-offset-2 transition-colors"
+                                >
+                                    Start chatting →
+                                </button>
+                            )}
+
+                            {liveToast.type === 'new_interest' && (
+                                <button
+                                    onClick={() => {
+                                        setLiveToast(null);
+                                        setShowNotifications(true);
+                                    }}
+                                    className="mt-2 text-xs font-semibold text-gold-600 hover:text-gold-800 underline underline-offset-2 transition-colors"
+                                >
+                                    View notifications →
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Dismiss */}
+                        <button
+                            onClick={() => setLiveToast(null)}
+                            className={`shrink-0 rounded-full p-1 transition-colors ${
+                                liveToast.type === 'mutual_match' ? 'text-amber-300/60 hover:text-amber-200' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </motion.div>
                 )}
             </AnimatePresence>

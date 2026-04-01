@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, ShieldCheck } from 'lucide-react';
 import AIIcebreakerBanner from '../components/messages/AIIcebreakerBanner';
@@ -6,25 +6,71 @@ import SecureChatFeed from '../components/messages/SecureChatFeed';
 import DecisionActionSheet from '../components/messages/DecisionActionSheet';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const MOCK_MATCH = {
-    id: 'match_123',
-    name: 'Johan',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80',
-};
+interface MatchUser {
+    id: string;
+    name: string;
+    avatar: string;
+}
 
 export default function Messages() {
-    useParams();
+    const { chatId } = useParams();
     const navigate = useNavigate();
     const [showActionSheet, setShowActionSheet] = useState(false);
     const [isArchiving, setIsArchiving] = useState(false);
+    
+    const [matchUser, setMatchUser] = useState<MatchUser | null>(null);
+    const [initialMessages, setInitialMessages] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleAction = (action: string) => {
+    const currentUserStr = localStorage.getItem('user');
+    const currentUser = currentUserStr ? JSON.parse(currentUserStr) : { id: localStorage.getItem('userId'), name: 'Me' };
+
+    useEffect(() => {
+        const fetchChat = async () => {
+            const userId = localStorage.getItem('userId');
+            if (!userId || !chatId) return;
+
+            try {
+                const res = await fetch(`http://localhost:3001/api/conversations/${chatId}/messages`, {
+                    headers: { 'x-user-id': userId }
+                });
+                if (!res.ok) throw new Error('Failed to load chat');
+                
+                const data = await res.json();
+                if (data.matchUser) setMatchUser(data.matchUser);
+                if (data.messages) setInitialMessages(data.messages);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchChat();
+    }, [chatId]);
+
+    const handleAction = async (action: string) => {
         setShowActionSheet(false);
         if (action === 'close') {
             setIsArchiving(true);
-            setTimeout(() => navigate('/discovery'), 2000); // Respectful close animation transition
+            const userId = localStorage.getItem('userId');
+            if (userId && chatId) {
+                fetch(`http://localhost:3001/api/conversations/${chatId}/archive`, {
+                    method: 'POST',
+                    headers: { 'x-user-id': userId }
+                }).catch(console.error);
+            }
+            setTimeout(() => navigate('/discovery'), 2000); 
         }
     };
+
+    if (loading) {
+        return <div className="flex h-screen w-full items-center justify-center bg-white"><div className="w-8 h-8 rounded-full border-4 border-gold-400 border-t-transparent animate-spin" /></div>;
+    }
+
+    if (!matchUser) {
+        return <div className="flex h-screen w-full items-center justify-center bg-white"><p>Conversation not found.</p></div>;
+    }
 
     return (
         <div className="flex h-screen w-full flex-col bg-white overflow-hidden font-sans relative">
@@ -44,7 +90,7 @@ export default function Messages() {
                         >
                             <ShieldCheck className="w-12 h-12 text-gray-300 mb-4" />
                             <h2 className="font-serif text-2xl text-sacred-dark mb-2">Connection Archived</h2>
-                            <p className="text-gray-500 font-sans text-sm">{MOCK_MATCH.name} has been notified respectfully.</p>
+                            <p className="text-gray-500 font-sans text-sm">{matchUser.name} has been notified respectfully.</p>
                         </motion.div>
                     </motion.div>
                 )}
@@ -61,11 +107,11 @@ export default function Messages() {
                     </button>
                     <div className="flex items-center space-x-3">
                         <div className="relative">
-                            <img src={MOCK_MATCH.avatar} alt={MOCK_MATCH.name} className="h-10 w-10 rounded-full object-cover border border-gold-200 shadow-sm" />
+                            <img src={matchUser.avatar} alt={matchUser.name} className="h-10 w-10 rounded-full object-cover border border-gold-200 shadow-sm" />
                             <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" />
                         </div>
                         <div>
-                            <h1 className="font-serif text-lg font-medium text-sacred-dark leading-tight">{MOCK_MATCH.name}</h1>
+                            <h1 className="font-serif text-lg font-medium text-sacred-dark leading-tight">{matchUser.name}</h1>
                             <p className="text-xs font-medium text-gold-600 uppercase tracking-wide">Mutual Interest</p>
                         </div>
                     </div>
@@ -83,9 +129,14 @@ export default function Messages() {
             <main className="flex-1 overflow-hidden relative flex flex-col pt-2">
                 <div className="max-w-4xl mx-auto w-full flex flex-col h-full bg-white shadow-[0_0_60px_-15px_rgba(0,0,0,0.05)] rounded-t-[2.5rem] border-x border-t border-gold-100/50 overflow-hidden">
                     <div className="shrink-0 z-10 bg-white">
-                        <AIIcebreakerBanner matchName={MOCK_MATCH.name} />
+                        <AIIcebreakerBanner matchName={matchUser.name} />
                     </div>
-                    <SecureChatFeed currentUser={{ id: 'me', name: 'Maria' }} matchUser={MOCK_MATCH} />
+                    <SecureChatFeed 
+                        currentUser={{ id: currentUser.id || localStorage.getItem('userId') || 'me', name: currentUser.firstName || currentUser.name || 'Me' }} 
+                        matchUser={matchUser} 
+                        chatId={chatId!}
+                        initialMessages={initialMessages}
+                    />
                 </div>
             </main>
 

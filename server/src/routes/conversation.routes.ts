@@ -13,5 +13,6 @@ router.get('/:conversationId/messages', conversationController.getMessages);
 router.post('/:conversationId/messages', validate(sendMessageSchema), conversationController.sendMessage);
 router.post('/:conversationId/close', conversationController.archiveConversation);
 router.get('/:conversationId/icebreaker', conversationController.getIcebreaker);
+router.post('/:conversationId/reveal', conversationController.revealMedia);
 
 export default router;

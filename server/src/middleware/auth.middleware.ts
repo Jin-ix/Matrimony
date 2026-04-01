@@ -14,7 +14,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     const xUserId = req.headers['x-user-id'] as string;
 
     if (xUserId) {
-        req.user = { userId: xUserId, role: 'candidate' };
+        const xUserRole = req.headers['x-user-role'] as string | undefined;
+        req.user = { userId: xUserId, role: (xUserRole === 'scout' ? 'scout' : 'candidate') as 'candidate' | 'scout' };
         return next();
     }
 

@@ -399,6 +399,29 @@ function PrivacySettings() {
             </div>
 
             <div className="space-y-6 max-w-2xl mt-8">
+                {/* Your Account ID — share with parent for Kitchen Table linking */}
+                {(() => {
+                    const uid = localStorage.getItem('userId') || '';
+                    return (
+                        <div className="p-5 rounded-2xl border border-gold-200/60 bg-gold-50/50">
+                            <h3 className="font-semibold text-sacred-dark mb-1">🔑 Your Account ID</h3>
+                            <p className="text-[13px] text-gray-500 mb-3">
+                                Share this ID with a parent so they can link their account and join your Kitchen Table.
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <code className="flex-1 bg-white border border-gold-200 rounded-xl px-4 py-2.5 text-[13px] text-sacred-dark font-mono truncate select-all">
+                                    {uid || 'Not logged in'}
+                                </code>
+                                <button
+                                    onClick={() => { navigator.clipboard.writeText(uid); }}
+                                    className="px-4 py-2.5 rounded-xl text-[13px] font-medium border bg-white border-gold-200 text-gold-700 hover:bg-gold-50 transition-all"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
                 <div className="flex items-center justify-between p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
                     <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">

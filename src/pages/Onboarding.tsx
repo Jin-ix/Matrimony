@@ -136,16 +136,33 @@ export default function Onboarding() {
                 
                 // 5. Photos
                 const photoPromises = photos.map((photo, index) => {
-                    return supabase
-                        .from('Photo')
-                        .insert([{
-                            id: crypto.randomUUID(),
-                            userId: userId,
-                            url: photo.isBlurred ? 'blurred_placeholder_url' : photo.preview,
-                            publicId: photo.isBlurred ? 'blurred' : 'clear',
-                            isPrimary: index === 0,
-                            order: index
-                        }]);
+                    return new Promise<void>((resolve, reject) => {
+                        if (photo.isBlurred) {
+                            supabase.from('Photo').insert([{
+                                id: crypto.randomUUID(),
+                                userId: userId,
+                                url: 'blurred_placeholder_url',
+                                publicId: 'blurred',
+                                isPrimary: index === 0,
+                                order: index
+                            }]).then(() => resolve()).catch(reject);
+                        } else {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64String = reader.result as string;
+                                supabase.from('Photo').insert([{
+                                    id: crypto.randomUUID(),
+                                    userId: userId,
+                                    url: base64String,
+                                    publicId: 'clear',
+                                    isPrimary: index === 0,
+                                    order: index
+                                }]).then(() => resolve()).catch(reject);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(photo.file);
+                        }
+                    });
                 });
                 
                 await Promise.all([...responsePromises, ...photoPromises]);

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Settings, Image as ImageIcon, MapPin, Church, Heart } from 'lucide-react';
+import { X, Settings, Image as ImageIcon, MapPin, Church, Heart, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import BlurredVideoPlayer from './BlurredVideoPlayer';
 
 interface UserProfileModalProps {
     onClose: () => void;
@@ -130,6 +131,79 @@ export default function UserProfileModal({ onClose, onSettingsClick }: UserProfi
                             </div>
                         </div>
                     )}
+
+                    {/* Soul DNA Blurred Video */}
+                    {profile?.videoIcebreakerUrl && (
+                        <div className="space-y-3">
+                            <h4 className="font-serif text-lg text-sacred-dark border-b border-gold-100 pb-2">Soul DNA Icebreaker</h4>
+                            <div className="mt-2">
+                                <BlurredVideoPlayer 
+                                   videoUrl={profile.videoIcebreakerUrl} 
+                                   createdAt={profile.createdAt} 
+                                   revealedAt={null} // Replace with actual state when integrated into chat wrapper
+                                   onRevealConsent={() => alert('Consent sent!')} 
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Diaspora Bridge: Home Visit Planner */}
+                    {profile?.homeVisitPlan && (
+                        <div className="space-y-3">
+                            <h4 className="font-serif text-lg text-blue-900 border-b border-blue-100 pb-2">Home Visit Planner (NRI)</h4>
+                            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                <p className="text-sm font-medium text-blue-800">
+                                    Planning to visit Kerala: {profile.homeVisitPlan.month || 'Soon'}
+                                </p>
+                                {profile.homeVisitPlan.notes && (
+                                    <p className="mt-2 text-xs text-blue-600">{profile.homeVisitPlan.notes}</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Family Compatibility Report */}
+                    <div className="space-y-3">
+                        <h4 className="font-serif text-lg text-sacred-dark border-b border-gold-100 pb-2 flex items-center">
+                            <Users className="mr-2 h-5 w-5 text-gold-500" /> Family Compatibility Report
+                        </h4>
+                        <div className="p-4 bg-gradient-to-br from-gold-50 to-white rounded-2xl border border-gold-200 shadow-sm relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-24 h-24 bg-gold-200/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                            
+                            <div className="flex justify-between items-center mb-4 relative z-10">
+                                <span className="text-sm font-semibold text-sacred-dark uppercase tracking-wider">Overall Match</span>
+                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold tracking-wide border border-green-200">
+                                    92% Exceptional
+                                </span>
+                            </div>
+
+                            <div className="space-y-3 relative z-10">
+                                <div>
+                                    <div className="flex justify-between text-xs font-medium text-sacred-dark/70 mb-1">
+                                        <span>Individual Compatibility</span>
+                                        <span>95%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-gold-500 h-1.5 rounded-full" style={{ width: '95%' }}></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-xs font-medium text-sacred-dark/70 mb-1">
+                                        <span>Family Values Alignment</span>
+                                        <span>88%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-gold-400 h-1.5 rounded-full" style={{ width: '88%' }}></div>
+                                    </div>
+                                </div>
+                                <div className="pt-2 border-t border-gold-100/50">
+                                    <p className="text-xs text-sacred-dark/60 italic leading-relaxed">
+                                        Both families share strong synergies in religious upbringing and community involvement. Very low friction detected in expected traditional roles.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Settings & Preferences */}
                     <div className="space-y-3">

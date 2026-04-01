@@ -15,6 +15,7 @@ import kitchenRoutes from './routes/kitchen.routes.js';
 import conversationRoutes from './routes/conversation.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import familyMatchRoutes from './routes/familyMatch.routes.js';
 
 // Import socket handlers
 import { registerChatSocket } from './socket/chat.socket.js';
@@ -55,6 +56,7 @@ app.use('/api/kitchen-table', kitchenRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/family-matches', familyMatchRoutes);
 
 // Error handling
 app.use(notFoundHandler);

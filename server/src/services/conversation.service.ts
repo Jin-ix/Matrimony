@@ -62,6 +62,24 @@ export async function getConversationMessages(
         throw Object.assign(new Error('Not a participant in this conversation'), { statusCode: 403 });
     }
 
+    const matchParticipant = await prisma.conversationParticipant.findFirst({
+        where: { conversationId, userId: { not: userId } },
+        include: {
+            user: {
+                include: {
+                    profile: { select: { firstName: true } },
+                    photos: { where: { isPrimary: true }, take: 1 },
+                },
+            },
+        },
+    });
+
+    const matchUser = matchParticipant ? {
+        id: matchParticipant.userId,
+        name: matchParticipant.user.profile?.firstName || 'Unknown',
+        avatar: matchParticipant.user.photos[0]?.url || '',
+    } : null;
+
     const messages = await prisma.message.findMany({
         where: { conversationId },
         orderBy: { createdAt: 'desc' },
@@ -80,6 +98,7 @@ export async function getConversationMessages(
     const result = hasMore ? messages.slice(0, limit) : messages;
 
     return {
+        matchUser,
         messages: result.reverse().map((m) => ({
             id: m.id,
             senderId: m.senderId,
@@ -186,4 +205,29 @@ export async function archiveConversation(conversationId: string, userId: string
     }
 
     return { success: true };
+}
+
+export async function revealMedia(conversationId: string, userId: string, type: 'photo' | 'video') {
+    const participant = await prisma.conversationParticipant.findFirst({
+        where: { conversationId, userId },
+    });
+
+    if (!participant) {
+        throw Object.assign(new Error('Not a participant'), { statusCode: 403 });
+    }
+
+    const data: any = {};
+    if (type === 'photo') data.photosRevealedAt = new Date();
+    if (type === 'video') data.videoRevealedAt = new Date();
+
+    const result = await prisma.conversation.update({
+        where: { id: conversationId },
+        data,
+    });
+
+    return { 
+        success: true, 
+        photosRevealedAt: result.photosRevealedAt, 
+        videoRevealedAt: result.videoRevealedAt 
+    };
 }
