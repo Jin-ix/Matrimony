@@ -145,7 +145,10 @@ export default function Onboarding() {
                                 publicId: 'blurred',
                                 isPrimary: index === 0,
                                 order: index
-                            }]).then(() => resolve()).catch(reject);
+                            }]).then(({ error }) => {
+                                if (error) reject(error);
+                                else resolve();
+                            });
                         } else {
                             const reader = new FileReader();
                             reader.onloadend = () => {
@@ -157,7 +160,10 @@ export default function Onboarding() {
                                     publicId: 'clear',
                                     isPrimary: index === 0,
                                     order: index
-                                }]).then(() => resolve()).catch(reject);
+                                }]).then(({ error }) => {
+                                    if (error) reject(error);
+                                    else resolve();
+                                });
                             };
                             reader.onerror = reject;
                             reader.readAsDataURL(photo.file);

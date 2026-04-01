@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MatchCard, { type MatchProfile } from './MatchCard';
 import { X, ShieldAlert, Heart, Send, CheckCircle2, Video, Upload, Sparkles, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { computeCulturalDistance, computeIndividualCompatibility, computeFamilyValuesScore, generateAIInsight } from '../../utils/scoring';
+import { computeIndividualCompatibility, computeFamilyValuesScore, generateAIInsight } from '../../utils/scoring';
 
 export const MOCK_PROFILES: MatchProfile[] = [
     {
@@ -186,7 +186,7 @@ export default function MatchFeedGrid({
                 }
 
                 const res = await fetch(`http://localhost:3001/api/discovery/feed?limit=50&orthodoxBridge=${orthodoxBridge}&strictKnanaya=${strictKnanaya}${activeRite ? '&rite='+activeRite : ''}`, {
-                    headers: { 'x-user-id': userId }
+                    headers: { 'x-user-id': userId ?? '' }
                 });
 
                 if (!res.ok) throw new Error('Failed to fetch discovery feed');

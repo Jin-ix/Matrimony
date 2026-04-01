@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bell, Heart, ShieldCheck, Mail, Sparkles, Star, Users, CheckCheck, Loader2, MessageCircle, ChevronRight } from 'lucide-react';
+import { X, Bell, Heart, ShieldCheck, Mail, Sparkles, Star, Users, CheckCheck, Loader2, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications, type AppNotification, type NotificationType } from '../../lib/notificationContext';
 
@@ -10,7 +10,7 @@ interface NotificationsPanelProps {
 // ---- Icon config per notification type ----
 const TYPE_CONFIG: Record<
     NotificationType,
-    { icon: React.ElementType; color: string; bg: string; label: string }
+    { icon: LucideIcon; color: string; bg: string; label: string }
 > = {
     new_interest: {
         icon: Heart,

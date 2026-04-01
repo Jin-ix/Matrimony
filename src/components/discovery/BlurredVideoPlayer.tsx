@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Eye, EyeOff, Lock, Clock } from 'lucide-react';
+import { Play, Eye, EyeOff, Lock } from 'lucide-react';
 
 interface BlurredVideoPlayerProps {
     videoUrl: string;
@@ -9,7 +9,7 @@ interface BlurredVideoPlayerProps {
     onRevealConsent: () => void;
 }
 
-export default function BlurredVideoPlayer({ videoUrl, revealedAt, createdAt, onRevealConsent }: BlurredVideoPlayerProps) {
+export default function BlurredVideoPlayer({ videoUrl, revealedAt, onRevealConsent }: BlurredVideoPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRevealed, setIsRevealed] = useState(!!revealedAt);
 

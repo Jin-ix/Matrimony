@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+
+import { motion } from 'framer-motion';
 
 export default function DecisionActionSheet({ onClose, onAction }: { onClose: () => void, onAction: (action: string) => void }) {
     return (

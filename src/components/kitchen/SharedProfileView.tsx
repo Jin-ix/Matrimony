@@ -1,4 +1,4 @@
-import { UserCircle, MapPin, Heart, ShieldCheck } from 'lucide-react';
+import { MapPin, ShieldCheck } from 'lucide-react';
 
 export default function SharedProfileView({ profile }: { profile: any }) {
     if (!profile) return null;
