@@ -14,30 +14,22 @@ async function test() {
         return;
     }
 
-    console.log(`Testing with user: ${femaleUser.profile.firstName} (${femaleUser.id})`);
+    console.log(`Testing feed for female user: ${femaleUser.profile.firstName} (${femaleUser.id})`);
     
     try {
-        const res = await fetch(`http://localhost:3001/api/discovery/feed?limit=20`, {
+        const res = await fetch(`http://localhost:3001/api/discovery/feed?limit=20&orthodoxBridge=false&strictKnanaya=false`, {
             headers: { 'x-user-id': femaleUser.id },
         });
         
-        console.log(`Status: ${res.status}`);
         const text = await res.text();
-        console.log(`Response length: ${text.length}`);
-        
-        try {
-            const data = JSON.parse(text);
-            if (data.profiles) {
-                console.log(`Returned profiles: ${data.profiles.length}`);
-                if (data.profiles.length > 0) {
-                    console.log(`First profile name: ${data.profiles[0].name}`);
-                    console.log(`First profile image: ${data.profiles[0].image ? data.profiles[0].image.substring(0, 50) + '...' : 'none'}`);
-                }
-            } else {
-                console.log("No profiles array in response:", data);
+        const data = JSON.parse(text);
+        if (data.profiles && data.profiles.length > 0) {
+            console.log(`Returned profiles: ${data.profiles.length}`);
+            for (const p of data.profiles) {
+                 console.log(`- Profile: ${p.name} | hasImage: ${!!p.image} | imageLength: ${p.image ? p.image.length : 0}`);
             }
-        } catch (e) {
-            console.log("Response text:", text.substring(0, 500));
+        } else {
+            console.log("No profiles returned");
         }
     } catch (e) {
         console.error("Fetch failed", e);

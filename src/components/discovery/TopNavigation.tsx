@@ -1,4 +1,4 @@
-import { Bell, User, Ghost, Settings, Church, UtensilsCrossed } from 'lucide-react';
+import { Bell, User, Ghost, Settings, Church, UtensilsCrossed, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../lib/notificationContext';
@@ -71,6 +71,14 @@ export default function TopNavigation({ onProfileClick, onNotificationsClick, on
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-gold-200 bg-gradient-to-br from-white to-gold-50 shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-md hover:border-gold-300 active:scale-95"
                 >
                     <User className="h-5 w-5 text-gold-700" />
+                </button>
+
+                <button
+                    onClick={() => navigate('/messages')}
+                    title="Messages"
+                    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-md hover:border-gray-300 active:scale-95 group"
+                >
+                    <MessageCircle className="h-5 w-5 text-gray-600 group-hover:text-gold-600 transition-colors" />
                 </button>
 
                 <button

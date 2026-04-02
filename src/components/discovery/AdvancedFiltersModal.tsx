@@ -4,10 +4,12 @@ import { useState } from 'react';
 
 interface AdvancedFiltersModalProps {
     onClose: () => void;
+    initialAgeRange: number[];
+    onApplyFilters: (ageRange: number[]) => void;
 }
 
-export default function AdvancedFiltersModal({ onClose }: AdvancedFiltersModalProps) {
-    const [ageRange, setAgeRange] = useState([24, 32]);
+export default function AdvancedFiltersModal({ onClose, initialAgeRange, onApplyFilters }: AdvancedFiltersModalProps) {
+    const [ageRange, setAgeRange] = useState(initialAgeRange);
     const [education, setEducation] = useState('Bachelors');
 
     return (
@@ -39,8 +41,8 @@ export default function AdvancedFiltersModal({ onClose }: AdvancedFiltersModalPr
                         </div>
                         <input
                             type="range"
-                            min="21"
-                            max="45"
+                            min="18"
+                            max="60"
                             value={ageRange[1]}
                             onChange={(e) => setAgeRange([ageRange[0], parseInt(e.target.value)])}
                             className="w-full mt-4 accent-gold-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -80,10 +82,10 @@ export default function AdvancedFiltersModal({ onClose }: AdvancedFiltersModalPr
 
                 {/* Footer */}
                 <div className="border-t border-gold-100 p-6 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
-                    <button onClick={onClose} className="w-full rounded-2xl bg-gradient-to-r from-gold-600 to-gold-500 py-3.5 font-medium text-white transition-transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-gold-200">
+                    <button onClick={() => { onApplyFilters(ageRange); onClose(); }} className="w-full rounded-2xl bg-gradient-to-r from-gold-600 to-gold-500 py-3.5 font-medium text-white transition-transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-gold-200">
                         Apply Filters
                     </button>
-                    <button className="w-full mt-3 rounded-2xl py-2 font-medium text-gray-500 hover:text-sacred-dark transition-colors">
+                    <button onClick={() => setAgeRange([18, 60])} className="w-full mt-3 rounded-2xl py-2 font-medium text-gray-500 hover:text-sacred-dark transition-colors">
                         Reset All
                     </button>
                 </div>

@@ -29,6 +29,8 @@ export default function Discovery() {
     const [orthodoxBridge, setOrthodoxBridge] = useState(false);
     const [strictKnanaya, setStrictKnanaya] = useState(false);
     const [activeRite, setActiveRite] = useState<string | null>(null);
+    const [ageRange, setAgeRange] = useState<number[]>([18, 60]);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // State for Banner customization
     const [userRole, setUserRole] = useState<string | null>(null);
@@ -98,6 +100,8 @@ export default function Discovery() {
                 setStrictKnanaya={setStrictKnanaya}
                 activeRite={activeRite}
                 setActiveRite={setActiveRite}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
                 onAdvancedFiltersClick={() => setShowAdvancedFilters(true)}
             />
             <main className="relative z-0 min-h-screen">
@@ -124,6 +128,8 @@ export default function Discovery() {
                         orthodoxBridge={orthodoxBridge}
                         strictKnanaya={strictKnanaya}
                         activeRite={activeRite}
+                        ageRange={ageRange}
+                        searchQuery={searchQuery}
                     />
                 </div>
 
@@ -147,7 +153,13 @@ export default function Discovery() {
                         }}
                     />
                 )}
-                {showAdvancedFilters && <AdvancedFiltersModal onClose={() => setShowAdvancedFilters(false)} />}
+                {showAdvancedFilters && (
+                    <AdvancedFiltersModal
+                        onClose={() => setShowAdvancedFilters(false)}
+                        initialAgeRange={ageRange}
+                        onApplyFilters={(newAgeRange) => setAgeRange(newAgeRange)}
+                    />
+                )}
                 {showNotifications && <NotificationsPanel onClose={() => setShowNotifications(false)} />}
 
                 {toastMessage && (

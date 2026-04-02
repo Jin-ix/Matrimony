@@ -89,7 +89,7 @@ export default function KitchenTable() {
     const [profileImage, setProfileImage] = useState('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80');
     const [typingUser, setTypingUser] = useState<string | null>(null);
     const [showInvite, setShowInvite] = useState(false);
-    const [inviteUserId, setInviteUserId] = useState('');
+    const [inviteEmail, setInviteEmail] = useState('');
     const [inviting, setInviting] = useState(false);
     const [inviteSuccess, setInviteSuccess] = useState(false);
     const [myTables, setMyTables] = useState<MyTable[]>([]);
@@ -304,26 +304,37 @@ export default function KitchenTable() {
 
     // ── 5. Invite member ──
     const handleInvite = async () => {
-        if (!inviteUserId.trim() || !effectiveMatchId || !myUserId) return;
+        if (!inviteEmail.trim() || !effectiveMatchId || !myUserId) return;
         setInviting(true);
         try {
+            // First lookup the user by email using Supabase
+            const { data: user, error } = await supabase.from('User').select('id').eq('email', inviteEmail.trim()).single();
+            if (error || !user) {
+                alert('Could not find a user with this email address.');
+                setInviting(false);
+                return;
+            }
+
             const res = await fetch(`${API}/kitchen-table/${effectiveMatchId}/members`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-id': myUserId, 'x-user-role': myRole },
-                body: JSON.stringify({ userId: inviteUserId.trim(), role: 'scout' }),
+                body: JSON.stringify({ userId: user.id, role: 'scout' }),
             });
             if (res.ok) {
                 setInviteSuccess(true);
-                setInviteUserId('');
+                setInviteEmail('');
                 setTimeout(() => { setInviteSuccess(false); setShowInvite(false); }, 2000);
                 // Refresh table info to update members
                 const tableRes = await fetch(`${API}/kitchen-table/${effectiveMatchId}`, {
                     headers: { 'x-user-id': myUserId, 'x-user-role': myRole }
                 });
                 if (tableRes.ok) setTableInfo(await tableRes.json());
+            } else {
+                alert('Failed to add this user. They might already be a member.');
             }
         } catch (e) {
             console.error('Invite error', e);
+            alert('An error occurred while inviting.');
         } finally {
             setInviting(false);
         }
@@ -678,16 +689,17 @@ export default function KitchenTable() {
                                 </div>
                             ) : (
                                 <>
-                                    <p className="text-sm text-gray-500 mb-5">Enter the User ID of the family member you'd like to add to this discussion.</p>
+                                    <p className="text-sm text-gray-500 mb-5">Enter the email address of the family member you'd like to add to this discussion.</p>
                                     <input
-                                        value={inviteUserId}
-                                        onChange={e => setInviteUserId(e.target.value)}
-                                        placeholder="User ID..."
+                                        type="email"
+                                        value={inviteEmail}
+                                        onChange={e => setInviteEmail(e.target.value)}
+                                        placeholder="Email address..."
                                         className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-5 py-3.5 text-sacred-dark placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gold-300 transition mb-4"
                                     />
                                     <button
                                         onClick={handleInvite}
-                                        disabled={!inviteUserId.trim() || inviting}
+                                        disabled={!inviteEmail.trim() || inviting}
                                         className="w-full rounded-2xl bg-gold-600 text-white py-3.5 font-semibold hover:bg-gold-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}

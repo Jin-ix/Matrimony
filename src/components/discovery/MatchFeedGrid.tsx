@@ -141,12 +141,16 @@ interface MatchFeedGridProps {
     orthodoxBridge: boolean;
     strictKnanaya: boolean;
     activeRite: string | null;
+    ageRange: number[];
+    searchQuery: string;
 }
 
 export default function MatchFeedGrid({
     orthodoxBridge,
     strictKnanaya,
-    activeRite
+    activeRite,
+    ageRange,
+    searchQuery
 }: MatchFeedGridProps) {
     const [selectedProfile, setSelectedProfile] = useState<MatchProfile | null>(null);
     const [isExpressingInterest, setIsExpressingInterest] = useState(false);
@@ -351,6 +355,20 @@ export default function MatchFeedGrid({
 
         // Standard Rite Base filter
         if (activeRite && profile.rite !== activeRite) return false;
+
+        // Age filter
+        if (profile.age < ageRange[0] || profile.age > ageRange[1]) return false;
+
+        // Search text matching
+        if (searchQuery.trim().length > 0) {
+            const query = searchQuery.toLowerCase().trim();
+            const matchesName = profile.name.toLowerCase().includes(query);
+            const matchesRite = profile.rite.toLowerCase().includes(query);
+            const matchesLocation = profile.location.toLowerCase().includes(query);
+            const matchesHobbies = profile.hobbies && profile.hobbies.some(h => h.toLowerCase().includes(query));
+            
+            if (!matchesName && !matchesRite && !matchesLocation && !matchesHobbies) return false;
+        }
 
         return true;
     });
