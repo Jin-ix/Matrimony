@@ -114,8 +114,15 @@ model Profile {
   // Comprehensive Matchmaking Fields
   maritalStatus      String   @default("Never Married")
   height             String?
+  weight             String?
+  complexion         String?
+  bloodGroup         String?
   motherTongue       String?
   familyValues       String?
+  familyType         String?
+  fatherOccupation   String?
+  motherOccupation   String?
+  siblingsCount      Int?
   spiritualValues    String?
   sacramentsReceived String[] @default([])
   occupation         String?

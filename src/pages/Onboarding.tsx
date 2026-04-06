@@ -115,6 +115,18 @@ export default function Onboarding() {
                         spiritualValues: chatAnswers.spiritualValues || null,
                         occupation: chatAnswers.occupation || null,
                         hobbies: chatAnswers.hobbies || [],
+                        weight: chatAnswers.weight || null,
+                        complexion: chatAnswers.complexion || null,
+                        bloodGroup: chatAnswers.bloodGroup || null,
+                        motherTongue: chatAnswers.motherTongue || null,
+                        familyType: chatAnswers.familyType || null,
+                        fatherOccupation: chatAnswers.fatherOccupation || null,
+                        motherOccupation: chatAnswers.motherOccupation || null,
+                        siblingsCount: chatAnswers.siblingsCount ? parseInt(chatAnswers.siblingsCount) : null,
+                        employer: chatAnswers.employer || null,
+                        annualIncome: chatAnswers.annualIncome || null,
+                        smoke: chatAnswers.smoke ? chatAnswers.smoke === 'Yes' ? true : false : null,
+                        drink: chatAnswers.drink ? chatAnswers.drink === 'Yes' ? true : false : null,
                         updatedAt: now,
                         profileComplete: 0.8
                     }]);

@@ -54,6 +54,24 @@ export async function updateProfile(userId: string, data: {
     hobbies?: string[];
     orthodoxBridge?: boolean;
     strictKnanaya?: boolean;
+    weight?: string;
+    complexion?: string;
+    bloodGroup?: string;
+    motherTongue?: string;
+    familyValues?: string;
+    familyType?: string;
+    fatherOccupation?: string;
+    motherOccupation?: string;
+    siblingsCount?: number;
+    spiritualValues?: string;
+    sacramentsReceived?: string[];
+    occupation?: string;
+    employer?: string;
+    annualIncome?: string;
+    smoke?: boolean;
+    drink?: boolean;
+    maritalStatus?: string;
+    height?: string;
 }) {
     let profile = await prisma.profile.findUnique({ where: { userId } });
 
@@ -82,6 +100,24 @@ export async function updateProfile(userId: string, data: {
                 hobbies: data.hobbies || [],
                 orthodoxBridge: data.orthodoxBridge ?? false,
                 strictKnanaya: data.strictKnanaya ?? false,
+                weight: data.weight,
+                complexion: data.complexion,
+                bloodGroup: data.bloodGroup,
+                motherTongue: data.motherTongue,
+                familyValues: data.familyValues,
+                familyType: data.familyType,
+                fatherOccupation: data.fatherOccupation,
+                motherOccupation: data.motherOccupation,
+                siblingsCount: data.siblingsCount,
+                spiritualValues: data.spiritualValues,
+                sacramentsReceived: data.sacramentsReceived || [],
+                occupation: data.occupation,
+                employer: data.employer,
+                annualIncome: data.annualIncome,
+                smoke: data.smoke,
+                drink: data.drink,
+                maritalStatus: data.maritalStatus || 'Never Married',
+                height: data.height,
             },
         });
     }

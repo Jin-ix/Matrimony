@@ -98,16 +98,79 @@ const QUESTIONS: Question[] = [
         options: ['Vegetarian', 'Non-Vegetarian', 'Eggetarian']
     },
     {
-        id: 'hobbies',
-        type: 'multi-choice',
-        text: (r) => r === 'candidate' ? `It's wonderful to share our passions. What are some of your favorite hobbies? (Select all that apply)` : `It's wonderful to share our passions. What are some of their favorite hobbies? (Select all that apply)`,
-        options: ['Reading', 'Cooking', 'Music', 'Photography', 'Travel', 'Sports', 'Volunteering', 'Gardening', 'Art', 'Writing']
+        id: 'motherTongue',
+        type: 'text',
+        text: (r) => r === 'candidate' ? `What is your mother tongue? (e.g., Malayalam, Konkani, English, Hindi)` : `What is their mother tongue?`,
+        validation: (val) => typeof val === 'string' && val.trim().length > 1 ? null : 'Please enter a valid mother tongue.'
     },
     {
-        id: 'email',
-        type: 'email',
-        text: (r) => r === 'candidate' ? `Lastly, please provide your email address so we can secure your wonderful profile.` : `Lastly, please provide your email address so we can secure their wonderful profile and keep in touch with your family.`,
-        validation: (val) => typeof val === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) ? null : 'Please double check and enter a valid email address.'
+        id: 'weight',
+        type: 'text',
+        text: (r) => r === 'candidate' ? `If you are comfortable sharing, what is your weight? (e.g., 65 kg or 145 lbs)` : `If you are comfortable sharing, what is their weight? (e.g., 65 kg or 145 lbs)`,
+        validation: (val) => null
+    },
+    {
+        id: 'complexion',
+        type: 'choice',
+        text: (r) => `Could you share the complexion? This helps families get a complete picture.`,
+        options: ['Very Fair', 'Fair', 'Wheatish', 'Dark']
+    },
+    {
+        id: 'bloodGroup',
+        type: 'choice',
+        text: (r) => `What is the blood group?`,
+        options: ['A+', 'O+', 'B+', 'AB+', 'A-', 'O-', 'B-', 'AB-']
+    },
+    {
+        id: 'smoke',
+        type: 'choice',
+        text: (r) => r === 'candidate' ? `Do you smoke?` : `Do they smoke?`,
+        options: ['No', 'Occasionally', 'Yes']
+    },
+    {
+        id: 'drink',
+        type: 'choice',
+        text: (r) => r === 'candidate' ? `Do you drink alcohol?` : `Do they drink alcohol?`,
+        options: ['No', 'Occasionally', 'Yes']
+    },
+    {
+        id: 'employer',
+        type: 'text',
+        text: (r) => r === 'candidate' ? `Who is your current employer or what is your business name?` : `Who is their current employer or business name?`
+    },
+    {
+        id: 'annualIncome',
+        type: 'text',
+        text: (r) => r === 'candidate' ? `What is your approximate annual income? (e.g., $80,000, or INR 15 Lakhs)` : `What is their approximate annual income?`,
+        validation: (val) => typeof val === 'string' && val.trim().length > 1 ? null : 'Please enter a valid income or type Prefer not to say.'
+    },
+    {
+        id: 'familyType',
+        type: 'choice',
+        text: (r) => `What type of family do you come from?`,
+        options: ['Nuclear', 'Joint', 'Other']
+    },
+    {
+        id: 'fatherOccupation',
+        type: 'text',
+        text: (r) => `What is the father's occupation?`
+    },
+    {
+        id: 'motherOccupation',
+        type: 'text',
+        text: (r) => `What is the mother's occupation?`
+    },
+    {
+        id: 'siblingsCount',
+        type: 'text',
+        text: (r) => `How many siblings do you have? (Enter a number)`,
+        validation: (val) => !isNaN(Number(val as string)) ? null : 'Please enter a valid number.'
+    },
+    {
+        id: 'hobbies',
+        type: 'multi-choice',
+        text: (r) => r === 'candidate' ? `Lastly, let's share some passions. What are some of your favorite hobbies? (Select all that apply)` : `Lastly, let's share some passions. What are some of their favorite hobbies? (Select all that apply)`,
+        options: ['Reading', 'Cooking', 'Music', 'Photography', 'Travel', 'Sports', 'Volunteering', 'Gardening', 'Art', 'Writing']
     }
 ];
 
@@ -228,8 +291,19 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
             occupation: 'Software Engineer in San Francisco',
             familyValues: 'Value close-knit family bonds and traditions.',
             dietaryPreference: 'Vegetarian',
-            hobbies: ['Reading', 'Travel', 'Music'],
-            email: 'user@example.com'
+            motherTongue: 'English',
+            weight: '60 kg',
+            complexion: 'Wheatish',
+            bloodGroup: 'O+',
+            smoke: 'No',
+            drink: 'Occasionally',
+            employer: 'Tech Corp',
+            annualIncome: '$100,000',
+            familyType: 'Nuclear',
+            fatherOccupation: 'Retired',
+            motherOccupation: 'Homemaker',
+            siblingsCount: '2',
+            hobbies: ['Reading', 'Travel']
         };
 
         setTimeout(() => {
