@@ -107,18 +107,18 @@ const QUESTIONS: Question[] = [
         id: 'weight',
         type: 'text',
         text: (r) => r === 'candidate' ? `If you are comfortable sharing, what is your weight? (e.g., 65 kg or 145 lbs)` : `If you are comfortable sharing, what is their weight? (e.g., 65 kg or 145 lbs)`,
-        validation: (val) => null
+        validation: () => null
     },
     {
         id: 'complexion',
         type: 'choice',
-        text: (r) => `Could you share the complexion? This helps families get a complete picture.`,
+        text: () => `Could you share the complexion? This helps families get a complete picture.`,
         options: ['Very Fair', 'Fair', 'Wheatish', 'Dark']
     },
     {
         id: 'bloodGroup',
         type: 'choice',
-        text: (r) => `What is the blood group?`,
+        text: () => `What is the blood group?`,
         options: ['A+', 'O+', 'B+', 'AB+', 'A-', 'O-', 'B-', 'AB-']
     },
     {
@@ -147,23 +147,23 @@ const QUESTIONS: Question[] = [
     {
         id: 'familyType',
         type: 'choice',
-        text: (r) => `What type of family do you come from?`,
+        text: () => `What type of family do you come from?`,
         options: ['Nuclear', 'Joint', 'Other']
     },
     {
         id: 'fatherOccupation',
         type: 'text',
-        text: (r) => `What is the father's occupation?`
+        text: () => `What is the father's occupation?`
     },
     {
         id: 'motherOccupation',
         type: 'text',
-        text: (r) => `What is the mother's occupation?`
+        text: () => `What is the mother's occupation?`
     },
     {
         id: 'siblingsCount',
         type: 'text',
-        text: (r) => `How many siblings do you have? (Enter a number)`,
+        text: () => `How many siblings do you have? (Enter a number)`,
         validation: (val) => !isNaN(Number(val as string)) ? null : 'Please enter a valid number.'
     },
     {
