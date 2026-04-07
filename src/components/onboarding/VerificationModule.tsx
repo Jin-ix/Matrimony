@@ -30,9 +30,24 @@ export default function VerificationModule({ onVerified }: VerificationModulePro
     };
 
     const handleLinkedInConnect = () => {
-        setTimeout(() => {
-            onVerified(phone);
-        }, 1000); // Simulate OAuth delay
+        const userId = localStorage.getItem('userId') || '';
+        const popupUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001'}/api/auth/linkedin?userId=${userId}&popup=true`;
+        
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(popupUrl, 'linkedin', `width=${width},height=${height},left=${left},top=${top}`);
+
+        const listener = (event: MessageEvent) => {
+            if (event.data?.type === 'LINKEDIN_SUCCESS') {
+                window.removeEventListener('message', listener);
+                onVerified(phone);
+            }
+        };
+
+        window.addEventListener('message', listener);
     };
 
     return (

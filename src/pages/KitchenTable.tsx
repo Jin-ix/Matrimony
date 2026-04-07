@@ -146,7 +146,15 @@ export default function KitchenTable() {
                 socket.on('kitchen:message', (msg: ChatMessage) => {
                     setMessages(prev => {
                         if (prev.some(m => m.id === msg.id)) return prev;
-                        return [...prev, msg];
+                        const filtered = prev.filter(m => !(m.id.startsWith('opt-') && m.text === msg.text && m.senderId === msg.senderId));
+                        return [...filtered, msg];
+                    });
+                });
+                socket.on('family_match:message', (msg: ChatMessage) => {
+                    setExternalMessages(prev => {
+                        if (prev.some(m => m.id === msg.id)) return prev;
+                        const filtered = prev.filter(m => !(m.id.startsWith('opt-') && m.text === msg.text && m.senderId === msg.senderId));
+                        return [...filtered, msg];
                     });
                 });
                 socket.on('kitchen:typing', ({ name }: { name: string }) => {
@@ -212,6 +220,10 @@ export default function KitchenTable() {
                     const data = await msgRes.json();
                     setExternalMessages(data.messages || []);
                 }
+                
+                if (socketRef.current) {
+                    socketRef.current.emit('family_match:join', chat.id);
+                }
             } catch (e) {
                 console.error('Failed to load family-match chat', e);
             } finally {
@@ -248,32 +260,23 @@ export default function KitchenTable() {
                     timestamp: new Date().toISOString(),
                 }]);
             } else if (chatMode === 'external' && familyMatchChatId) {
-                const res = await fetch(`${API}/family-matches/${familyMatchChatId}/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-user-id': myUserId },
-                    body: JSON.stringify({ text, senderName: myName }),
+                // Send via socket (server persists + broadcasts)
+                socketRef.current?.emit('family_match:message', {
+                    chatId: familyMatchChatId,
+                    senderId: myUserId,
+                    senderRole: myRole,
+                    senderName: myName,
+                    text,
                 });
-                if (res.ok) {
-                    const newMsg = await res.json();
-                    setExternalMessages(prev => [...prev, {
-                        id: newMsg.id,
-                        senderId: newMsg.senderId,
-                        senderName: newMsg.senderName,
-                        senderRole: newMsg.senderRole,
-                        text: newMsg.text,
-                        timestamp: newMsg.timestamp,
-                    }]);
-                } else {
-                    // Optimistic fallback (server may not have family-match yet)
-                    setExternalMessages(prev => [...prev, {
-                        id: `opt-ext-${Date.now()}`,
-                        senderId: myUserId,
-                        senderName: myName,
-                        senderRole: myRole,
-                        text,
-                        timestamp: new Date().toISOString(),
-                    }]);
-                }
+                // Optimistic fallback
+                setExternalMessages(prev => [...prev, {
+                    id: `opt-ext-${Date.now()}`,
+                    senderId: myUserId,
+                    senderName: myName,
+                    senderRole: myRole,
+                    text,
+                    timestamp: new Date().toISOString(),
+                }]);
             }
         } catch (e) {
             console.error('Send error', e);

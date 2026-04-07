@@ -42,7 +42,9 @@ export default function SecureChatFeed({
         socket.on('chat:message', (message: Message) => {
             setMessages(prev => {
                 if (prev.some(m => m.id === message.id)) return prev;
-                return [...prev, message];
+                // Remove optimistic message if it matches
+                const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.text === message.text && m.senderId === message.senderId));
+                return [...filtered, message];
             });
         });
 

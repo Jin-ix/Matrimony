@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Settings, Image as ImageIcon, MapPin, Church, Heart, Users } from 'lucide-react';
+import { X, Settings, Image as ImageIcon, MapPin, Church, Heart, Users, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import BlurredVideoPlayer from './BlurredVideoPlayer';
@@ -101,6 +101,16 @@ export default function UserProfileModal({ onClose, onSettingsClick }: UserProfi
                     {/* Basic Details */}
                     <div className="space-y-4">
                         <div className="flex items-center space-x-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                            <User className="h-5 w-5 text-gray-400" />
+                            <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Demographics</p>
+                                <p className="text-sm font-medium text-sacred-dark">
+                                    {profile?.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'Unknown'}
+                                    {profile?.age && `, ${profile.age} yrs`}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
                             <MapPin className="h-5 w-5 text-gray-400" />
                             <div>
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</p>
@@ -115,6 +125,18 @@ export default function UserProfileModal({ onClose, onSettingsClick }: UserProfi
                             </div>
                         </div>
                     </div>
+
+                    {/* About Me */}
+                    {profile?.bio && (
+                        <div className="space-y-3">
+                            <h4 className="font-serif text-lg text-sacred-dark border-b border-gold-100 pb-2 flex items-center">
+                                About Me
+                            </h4>
+                            <p className="text-sm text-sacred-dark/80 leading-relaxed italic border-l-4 border-gold-300 pl-4 py-1">
+                                "{profile.bio}"
+                            </p>
+                        </div>
+                    )}
 
                     {/* Hobbies */}
                     {profile?.hobbies && profile.hobbies.length > 0 && (

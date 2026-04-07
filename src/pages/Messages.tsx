@@ -60,7 +60,7 @@ export default function Messages() {
                     headers: { 'x-user-id': userId }
                 }).catch(console.error);
             }
-            setTimeout(() => navigate('/discovery'), 2000); 
+            setTimeout(() => navigate('/messages'), 2000); 
         }
     };
 
@@ -100,7 +100,7 @@ export default function Messages() {
             <header className="flex h-[72px] items-center justify-between border-b border-gold-200/60 bg-white/95 px-4 sm:px-6 backdrop-blur-xl z-10 shrink-0">
                 <div className="flex items-center space-x-4">
                     <button
-                        onClick={() => navigate('/discovery')}
+                        onClick={() => navigate('/messages')}
                         className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-sacred-offwhite transition-colors text-sacred-dark"
                     >
                         <ArrowLeft className="h-5 w-5" />

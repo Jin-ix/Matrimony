@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import * as kitchenService from '../services/kitchen.service.js';
+import * as familyMatchService from '../services/familyMatch.service.js';
 import type { UserRole } from '@prisma/client';
 
 export function registerKitchenSocket(io: Server) {
@@ -44,6 +45,34 @@ export function registerKitchenSocket(io: Server) {
                 userId: data.userId,
                 name: data.name,
             });
+        });
+
+        // Family Match Chat
+        socket.on('family_match:join', (chatId: string) => {
+            socket.join(`family_match:${chatId}`);
+            console.log(`  → Joined Family Match: ${chatId}`);
+        });
+
+        socket.on('family_match:message', async (data: {
+            chatId: string;
+            senderId: string;
+            senderRole: UserRole;
+            senderName: string;
+            text: string;
+        }) => {
+            try {
+                const message = await familyMatchService.sendFamilyMatchMessage(
+                    data.chatId,
+                    data.senderId,
+                    data.senderRole,
+                    data.senderName,
+                    data.text
+                );
+                // Broadcast to members in the family match room
+                kitchenNamespace.to(`family_match:${data.chatId}`).emit('family_match:message', message);
+            } catch (error) {
+                socket.emit('kitchen:error', { message: (error as Error).message });
+            }
         });
 
         // Leave

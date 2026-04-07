@@ -14,6 +14,7 @@ export const updateProfileSchema = z.object({
     hobbies: z.array(z.string().max(50)).max(10).optional(),
     orthodoxBridge: z.boolean().optional(),
     strictKnanaya: z.boolean().optional(),
+    dateOfBirth: z.string().optional(),
 });
 
 export const updatePreferencesSchema = z.object({

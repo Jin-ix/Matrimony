@@ -102,12 +102,15 @@ model Profile {
   rite              Rite
   parish            String?
   bio               String?
+  dateOfBirth       DateTime?
   education         String?
   dietaryPreference String?
   hobbies           String[] @default([])
   orthodoxBridge    Boolean  @default(false)
   strictKnanaya     Boolean  @default(false)
   profileComplete   Float    @default(0)
+  latitude          Float?
+  longitude         Float?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

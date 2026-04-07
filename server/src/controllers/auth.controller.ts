@@ -78,24 +78,73 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
     }
 }
 
-export async function linkedInAuth(_req: Request, res: Response) {
-    const url = linkedinService.getLinkedInAuthUrl();
+export async function linkedInAuth(req: Request, res: Response) {
+    const userId = req.query.userId as string || '';
+    const isPopup = req.query.popup === 'true';
+    const statePayload = JSON.stringify({ userId, popup: isPopup });
+    const state = Buffer.from(statePayload).toString('base64');
+    
+    const url = linkedinService.getLinkedInAuthUrl(state);
     res.redirect(url);
 }
 
 export async function linkedInCallback(req: Request, res: Response, next: NextFunction) {
     try {
-        const { code } = req.query;
+        const { code, state } = req.query;
         if (!code || typeof code !== 'string') {
             res.status(400).json({ error: 'Authorization code required' });
             return;
         }
+        
+        let targetUserId = req.user?.userId;
+        let isPopup = false;
+        
+        if (state && typeof state === 'string') {
+            try {
+                const parsed = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+                if (parsed.userId) targetUserId = parsed.userId;
+                isPopup = parsed.popup;
+            } catch (e) {
+                // If legacy state isn't base64, try to use it directly
+                if (state && state !== 'undefined' && !state.includes('{')) {
+                    targetUserId = state;
+                }
+            }
+        }
+
         const linkedInData = await linkedinService.exchangeLinkedInCode(code);
 
-        // If user is authenticated, link LinkedIn to their account
-        if (req.user) {
-            await authService.linkLinkedIn(req.user.userId, linkedInData.linkedInId);
-            res.redirect(`${process.env.FRONTEND_URL}/settings?linkedin=success`);
+        if (targetUserId) {
+            await authService.linkLinkedIn(
+                targetUserId, 
+                linkedInData.linkedInId,
+                {
+                    occupation: linkedInData.occupation,
+                    employer: linkedInData.employer,
+                    education: linkedInData.education,
+                }
+            );
+        }
+        
+        if (isPopup) {
+            res.send(`
+                <html><body>
+                <script>
+                    if (window.opener) {
+                        window.opener.postMessage({ 
+                            type: 'LINKEDIN_SUCCESS', 
+                            data: ${JSON.stringify(linkedInData)} 
+                        }, '*');
+                        window.close();
+                    }
+                </script>
+                </body></html>
+            `);
+            return;
+        }
+        
+        if (targetUserId) {
+            res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?linkedin=success`);
         } else {
             res.json({ linkedInData });
         }

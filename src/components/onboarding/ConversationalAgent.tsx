@@ -272,53 +272,47 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
         const importMsg: Message = {
             id: Date.now().toString(),
             sender: 'user',
-            text: 'Imported details from LinkedIn.'
+            text: 'Connect with LinkedIn'
         };
         setMessages(prev => [...prev, importMsg]);
+
+        const userId = localStorage.getItem('userId') || '';
+        const popupUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001'}/api/auth/linkedin?userId=${userId}&popup=true`;
         
-        // Mock data to auto-fill
-        const mockLinkedInData: ProfileData = {
-            name: 'LinkedIn User',
-            gender: 'Woman', // Defaulting for demo
-            age: '28',
-            height: '5\'6"',
-            maritalStatus: 'Never Married',
-            rite: 'Syro-Malabar',
-            parish: 'St. Mary\'s',
-            sacramentsReceived: ['Baptism', 'Holy Communion', 'Confirmation'],
-            spiritualValues: 'Moderate',
-            education: 'Master\'s in Computer Science',
-            occupation: 'Software Engineer in San Francisco',
-            familyValues: 'Value close-knit family bonds and traditions.',
-            dietaryPreference: 'Vegetarian',
-            motherTongue: 'English',
-            weight: '60 kg',
-            complexion: 'Wheatish',
-            bloodGroup: 'O+',
-            smoke: 'No',
-            drink: 'Occasionally',
-            employer: 'Tech Corp',
-            annualIncome: '$100,000',
-            familyType: 'Nuclear',
-            fatherOccupation: 'Retired',
-            motherOccupation: 'Homemaker',
-            siblingsCount: '2',
-            hobbies: ['Reading', 'Travel']
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(popupUrl, 'linkedin', `width=${width},height=${height},left=${left},top=${top}`);
+
+        const listener = (event: MessageEvent) => {
+            if (event.data?.type === 'LINKEDIN_SUCCESS') {
+                window.removeEventListener('message', listener);
+                
+                const scrapedData = event.data.data;
+                const mockLinkedInData: ProfileData = {
+                    name: scrapedData.name || 'LinkedIn User',
+                    occupation: scrapedData.occupation || 'Software Engineer',
+                    employer: scrapedData.employer || 'Tech Corp',
+                    education: scrapedData.education || 'Master\'s Degree',
+                };
+
+                setIsTyping(false);
+                const successMsg: Message = {
+                    id: Date.now().toString() + 'ai',
+                    sender: 'ai',
+                    text: 'Beautiful! I have successfully imported your professional details from LinkedIn. Our sacred profile is almost ready.'
+                };
+                setMessages(prev => [...prev, successMsg]);
+
+                setTimeout(() => {
+                    onComplete({ ...profileData, ...mockLinkedInData });
+                }, 3000);
+            }
         };
 
-        setTimeout(() => {
-            setIsTyping(false);
-            const successMsg: Message = {
-                id: Date.now().toString() + 'ai',
-                sender: 'ai',
-                text: 'Beautiful! I have successfully imported your professional details from LinkedIn. Our sacred profile is almost ready.'
-            };
-            setMessages(prev => [...prev, successMsg]);
-
-            setTimeout(() => {
-                onComplete({ ...profileData, ...mockLinkedInData });
-            }, 3000);
-        }, 2000);
+        window.addEventListener('message', listener);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

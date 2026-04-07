@@ -44,6 +44,7 @@ export async function updateProfile(userId: string, data: {
     firstName?: string;
     lastName?: string;
     age?: number;
+    dateOfBirth?: Date | string;
     gender?: 'male' | 'female';
     location?: string;
     rite?: Rite;
@@ -75,11 +76,19 @@ export async function updateProfile(userId: string, data: {
 }) {
     let profile = await prisma.profile.findUnique({ where: { userId } });
 
+    if (data.dateOfBirth && !data.age) {
+        const dob = new Date(data.dateOfBirth);
+        const diffMs = Date.now() - dob.getTime();
+        const ageDt = new Date(diffMs); 
+        data.age = Math.abs(ageDt.getUTCFullYear() - 1970);
+    }
+
     if (profile) {
         profile = await prisma.profile.update({
             where: { userId },
             data: {
                 ...data,
+                dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
                 updatedAt: new Date(),
             },
         });
@@ -90,6 +99,7 @@ export async function updateProfile(userId: string, data: {
                 firstName: data.firstName || '',
                 lastName: data.lastName || '',
                 age: data.age || 25,
+                dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
                 gender: data.gender || 'male',
                 location: data.location || '',
                 rite: data.rite || 'SYRO_MALABAR',

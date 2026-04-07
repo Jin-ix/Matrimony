@@ -4,6 +4,7 @@ import Auth from './pages/Auth';
 import Onboarding from './pages/Onboarding';
 import Discovery from './pages/Discovery';
 import KitchenTable from './pages/KitchenTable';
+import Connections from './pages/Connections';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import { NotificationProvider } from './lib/notificationContext';
@@ -20,6 +21,7 @@ function App() {
           <Route path="/discovery" element={<Discovery />} />
           <Route path="/kitchen-table" element={<KitchenTable />} />
           <Route path="/kitchen-table/:matchId" element={<KitchenTable />} />
+          <Route path="/messages" element={<Connections />} />
           <Route path="/messages/:chatId" element={<Messages />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

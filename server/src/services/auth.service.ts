@@ -144,12 +144,39 @@ export async function changePassword(
     });
 }
 
-export async function linkLinkedIn(userId: string, linkedInId: string): Promise<void> {
-    await prisma.user.update({
-        where: { id: userId },
-        data: {
-            linkedInId,
-            isVerified: true,
-        },
+export async function linkLinkedIn(
+    userId: string,
+    linkedInId: string,
+    scrapedData?: { occupation?: string; employer?: string; education?: string }
+): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+            where: { id: userId },
+            data: {
+                linkedInId,
+                isVerified: true,
+            },
+        });
+
+        if (scrapedData) {
+            // Update the profile if it exists
+            const profile = await tx.profile.findUnique({
+                where: { userId },
+            });
+
+            if (profile) {
+                const updateData: any = {};
+                if (scrapedData.occupation && !profile.occupation) updateData.occupation = scrapedData.occupation;
+                if (scrapedData.employer && !profile.employer) updateData.employer = scrapedData.employer;
+                if (scrapedData.education && !profile.education) updateData.education = scrapedData.education;
+
+                if (Object.keys(updateData).length > 0) {
+                    await tx.profile.update({
+                        where: { userId },
+                        data: updateData,
+                    });
+                }
+            }
+        }
     });
 }

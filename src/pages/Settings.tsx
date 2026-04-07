@@ -57,6 +57,7 @@ export default function Settings() {
                     firstName: profile.firstName || 'Candidate',
                     lastName: profile.lastName || '',
                     age: profile.age || 25,
+                    dateOfBirth: profile.dateOfBirth || null,
                     gender: profile.gender || 'male',
                     location: profile.location || 'Unknown',
                     rite: profile.rite || 'SYRO_MALABAR',
@@ -274,8 +275,20 @@ function ProfileSettings({ profile, setProfile, loading }: { profile: any, setPr
     const initial = firstName ? firstName.charAt(0) : 'C';
 
     const handleUpdate = (field: string, value: string) => {
-        setProfile((prev: any) => ({ ...prev, [field]: value }));
+        setProfile((prev: any) => {
+            const updated = { ...prev, [field]: value };
+            if (field === 'dateOfBirth' && value) {
+                const dob = new Date(value);
+                const diffMs = Date.now() - dob.getTime();
+                const ageDt = new Date(diffMs); 
+                updated.age = Math.abs(ageDt.getUTCFullYear() - 1970);
+            }
+            return updated;
+        });
     };
+
+    // Safely format date string for input type="date"
+    const dobString = profile?.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : '';
 
     return (
         <div className="space-y-8">
@@ -321,6 +334,20 @@ function ProfileSettings({ profile, setProfile, loading }: { profile: any, setPr
                     </div>
                 </div>
 
+                <div className="flex flex-col sm:flex-row gap-6">
+                    <div className="flex-1 space-y-2">
+                        <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Date of Birth</label>
+                        <input type="date" value={dobString} onChange={(e) => handleUpdate('dateOfBirth', e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Gender</label>
+                        <select value={profile?.gender || 'male'} onChange={(e) => handleUpdate('gender', e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all appearance-none cursor-pointer">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div className="space-y-2">
                     <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Church Parish / Diocese</label>
                     <input type="text" value={profile?.parish || ''} onChange={(e) => handleUpdate('parish', e.target.value)} placeholder="St. Thomas Cathedral" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all" />
@@ -340,6 +367,37 @@ function ProfileSettings({ profile, setProfile, loading }: { profile: any, setPr
                         placeholder="Passionate about faith, family..."
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all resize-none"
                     />
+                </div>
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-medium text-sacred-dark text-[15px]">Professional Details</h3>
+                            <p className="text-[13px] text-gray-500">Your career background, which can be enriched via LinkedIn.</p>
+                        </div>
+                        <a 
+                            href={`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001'}/api/auth/linkedin?userId=${localStorage.getItem('userId') || (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).id : '')}`}
+                            className="inline-flex items-center space-x-2 px-4 py-2 bg-[#0077b5] text-white rounded-xl text-[13px] font-medium hover:bg-[#005a87] transition-colors shadow-sm"
+                        >
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
+                            <span>Connect LinkedIn</span>
+                        </a>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row gap-6">
+                        <div className="flex-1 space-y-2">
+                            <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Occupation</label>
+                            <input type="text" value={profile?.occupation || ''} onChange={(e) => handleUpdate('occupation', e.target.value)} placeholder="Software Engineer" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all" />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                            <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Employer</label>
+                            <input type="text" value={profile?.employer || ''} onChange={(e) => handleUpdate('employer', e.target.value)} placeholder="Tech Innovations Inc." className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all" />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500">Education</label>
+                        <input type="text" value={profile?.education || ''} onChange={(e) => handleUpdate('education', e.target.value)} placeholder="B.Tech in Computer Science" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all" />
+                    </div>
                 </div>
             </div>
         </div>
