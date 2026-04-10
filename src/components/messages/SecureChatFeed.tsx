@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
+import { supabase } from '../../lib/supabase';
 
 interface Message {
     id: string;
@@ -32,25 +33,25 @@ export default function SecureChatFeed({
         setMessages(initialMessages);
     }, [initialMessages]);
 
+    // Socket.io for backend
     useEffect(() => {
-        const socket = io('http://localhost:3001/chat', { transports: ['websocket'] });
+        const socket = io('http://localhost:3001/chat', { 
+            transports: ['websocket'],
+            reconnectionAttempts: 3,
+            timeout: 5000
+        });
         
         socket.on('connect', () => {
+            console.log('[Socket] Connected to chat');
             socket.emit('chat:join', chatId);
         });
 
         socket.on('chat:message', (message: Message) => {
             setMessages(prev => {
                 if (prev.some(m => m.id === message.id)) return prev;
-                // Remove optimistic message if it matches
                 const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.text === message.text && m.senderId === message.senderId));
                 return [...filtered, message];
             });
-        });
-
-        socket.on('chat:flagged', (data: any) => {
-            setModerationWarning(data.reason || 'Message flagged for moderation.');
-            setTimeout(() => setModerationWarning(null), 5000);
         });
 
         socketRef.current = socket;
@@ -61,14 +62,57 @@ export default function SecureChatFeed({
         };
     }, [chatId]);
 
+    // Supabase Real-time fallback
+    useEffect(() => {
+        if (!chatId) return;
+
+        const channel = supabase
+            .channel(`chat:${chatId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'Message',
+                    filter: `conversationId=eq.${chatId}`,
+                },
+                (payload) => {
+                    const newMessage = payload.new as any;
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === newMessage.id)) return prev;
+                        
+                        // Map Supabase message to UI format
+                        const mapped: Message = {
+                            id: newMessage.id,
+                            senderId: newMessage.senderId,
+                            text: newMessage.text,
+                            timestamp: new Date(newMessage.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            }),
+                            flagged: false,
+                        };
+
+                        // Remove optimistic temp message if found
+                        const filtered = prev.filter(m => !(m.id.startsWith('temp-') && m.text === mapped.text && m.senderId === mapped.senderId));
+                        return [...filtered, mapped];
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [chatId]);
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, moderationWarning]);
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!input.trim()) return;
 
-        // Visual Optimistic Update Shield Check
         const suspiciousKeywords = ['address', 'bank', 'whatsapp', 'number', 'cash'];
         const isSuspicious = suspiciousKeywords.some(kw => input.toLowerCase().includes(kw));
 
@@ -87,16 +131,43 @@ export default function SecureChatFeed({
         };
         
         setMessages(prev => [...prev, optimisticMessage]);
-        
-        if (socketRef.current) {
+        const textToSend = input;
+        setInput('');
+
+        // Try Socket.io first
+        let sentViaSocket = false;
+        if (socketRef.current && socketRef.current.connected) {
             socketRef.current.emit('chat:message', {
                 conversationId: chatId,
                 senderId: currentUser.id,
-                text: input,
+                text: textToSend,
             });
+            sentViaSocket = true;
         }
-        
-        setInput('');
+
+        // Always sync with Supabase (effectively the "official" send if backend is down)
+        // Or if socket failed
+        if (!sentViaSocket) {
+            console.log('[Chat] Socket disconnected — sending via Supabase direct');
+            
+            // Generate a random ID to satisfy Prisma's @id requirement
+            const messageId = typeof crypto.randomUUID === 'function' 
+                ? crypto.randomUUID() 
+                : Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+            const { error } = await supabase.from('Message').insert([{
+                id: messageId,
+                conversationId: chatId,
+                senderId: currentUser.id,
+                text: textToSend,
+                createdAt: new Date().toISOString(),
+            }]);
+            
+            if (error) {
+                console.error('[Chat] Failed to send message via Supabase:', error.message, error.details, error.hint);
+                setModerationWarning(`Failed to send message: ${error.message}. Please try again.`);
+            }
+        }
     };
 
     return (

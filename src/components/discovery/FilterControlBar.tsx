@@ -1,4 +1,4 @@
-import { SlidersHorizontal, MapPin, Church } from 'lucide-react';
+import { SlidersHorizontal, Church } from 'lucide-react';
 
 interface FilterControlBarProps {
     orthodoxBridge: boolean;
@@ -51,12 +51,8 @@ export default function FilterControlBar({
                         <span>Syro-Malabar</span>
                     </button>
 
-                    <button className="flex items-center space-x-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 transition-transform hover:border-gold-300 hover:bg-sacred-offwhite">
-                        <MapPin className="h-4 w-4" />
-                        <span>Kerala, India + 500mi</span>
-                    </button>
 
-                    <div className="h-6 w-px bg-gray-300"></div>
+
 
                     <div className="relative group flex items-center">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gold-500 transition-colors">

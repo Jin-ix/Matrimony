@@ -16,7 +16,7 @@ export default function MediaUploadModal({ onFinish }: MediaUploadProps) {
         if (!e.target.files?.length) return;
         
         setIsUploading(true);
-        const newFiles = Array.from(e.target.files).slice(0, 3 - photos.length);
+        const newFiles = Array.from(e.target.files).slice(0, 6 - photos.length);
         
         // Simulate a slight upload delay for UX
         setTimeout(() => {
@@ -60,7 +60,7 @@ export default function MediaUploadModal({ onFinish }: MediaUploadProps) {
                 <div>
                     <h2 className="text-2xl font-serif text-sacred-dark mb-2">A Picture is Worth a Thousand Words</h2>
                     <p className="text-sm leading-relaxed text-gray-600 px-2 font-sans">
-                        Upload a few recent photos. Profiles with clear, friendly photos receive significantly more meaningful connections.
+                        Upload up to 6 recent photos. Profiles with clear, friendly photos receive significantly more meaningful connections.
                     </p>
                 </div>
             </div>
@@ -91,7 +91,7 @@ export default function MediaUploadModal({ onFinish }: MediaUploadProps) {
                 />
                 
                 <div className="grid grid-cols-3 gap-4">
-                    {[0, 1, 2].map((slot) => {
+                    {[0, 1, 2, 3, 4, 5].map((slot) => {
                         const photo = photos[slot];
                         
                         return (

@@ -40,6 +40,11 @@ export interface DiscoveryFilters {
     maxAge?: number;
     education?: string;
     diet?: string;
+    location?: string;
+    maritalStatus?: string;
+    motherTongue?: string;
+    smoke?: boolean;
+    drink?: boolean;
 }
 
 export interface MatchProfileResponse {

@@ -22,6 +22,8 @@ router.post('/logout', authMiddleware, authController.logout);
 router.post('/change-password', authMiddleware, validate(changePasswordSchema), authController.changePassword);
 router.get('/linkedin', authController.linkedInAuth);
 router.get('/linkedin/callback', optionalAuth, authController.linkedInCallback);
+router.get('/instagram', authController.instagramAuth);
+router.get('/instagram/callback', optionalAuth, authController.instagramCallback);
 
 // Parent-Candidate linking
 router.post('/link-parent', authController.linkParent);

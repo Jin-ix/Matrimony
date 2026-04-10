@@ -7,8 +7,23 @@ interface VerificationModuleProps {
 }
 
 export default function VerificationModule({ onVerified }: VerificationModuleProps) {
-    const [step, setStep] = useState<'phone' | 'otp' | 'linkedin'>('phone');
-    const [phone, setPhone] = useState('');
+    // Pre-fill phone from registration (stored in localStorage as user.phone)
+    const getStoredPhone = () => {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                return user?.phone || '';
+            }
+        } catch (_) {}
+        return '';
+    };
+
+    const storedPhone = getStoredPhone();
+
+    // If phone is already known from registration, skip straight to OTP step
+    const [step, setStep] = useState<'phone' | 'otp' | 'linkedin'>(storedPhone ? 'otp' : 'phone');
+    const [phone, setPhone] = useState(storedPhone);
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
 
     const handlePhoneSubmit = (e: React.FormEvent) => {

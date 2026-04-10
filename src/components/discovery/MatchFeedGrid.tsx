@@ -5,6 +5,7 @@ import MatchCard, { type MatchProfile } from './MatchCard';
 import { X, ShieldAlert, Heart, Send, CheckCircle2, Video, Upload, Sparkles, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { computeIndividualCompatibility, computeFamilyValuesScore, generateAIInsight } from '../../utils/scoring';
+import type { AdvancedFilters } from './AdvancedFiltersModal';
 
 export const MOCK_PROFILES: MatchProfile[] = [
     {
@@ -141,7 +142,7 @@ interface MatchFeedGridProps {
     orthodoxBridge: boolean;
     strictKnanaya: boolean;
     activeRite: string | null;
-    ageRange: number[];
+    advancedFilters: AdvancedFilters;
     searchQuery: string;
 }
 
@@ -149,7 +150,7 @@ export default function MatchFeedGrid({
     orthodoxBridge,
     strictKnanaya,
     activeRite,
-    ageRange,
+    advancedFilters,
     searchQuery
 }: MatchFeedGridProps) {
     const [selectedProfile, setSelectedProfile] = useState<MatchProfile | null>(null);
@@ -170,62 +171,181 @@ export default function MatchFeedGrid({
     useEffect(() => {
         const fetchProfiles = async () => {
             try {
-                let userGender = localStorage.getItem('userGender');
                 const userId = localStorage.getItem('userId');
+                let userGender = localStorage.getItem('userGender');
 
-                // Fetch my profile for dynamic scoring
+                // ── Step 1: Fetch my own profile (gender + scoring data) ──────
                 let myProfileData: any = null;
                 if (userId) {
                     const { data: mp } = await supabase.from('Profile').select('*').eq('userId', userId).single();
                     myProfileData = mp;
                     setMyProfile(mp);
-                }
-
-                // Fallback to fetch gender if missing
-                if (!userGender && userId) {
-                    if (myProfileData?.gender) {
-                        userGender = myProfileData.gender;
-                        localStorage.setItem('userGender', myProfileData.gender);
+                    if (!userGender && mp?.gender) {
+                        userGender = mp.gender;
+                        localStorage.setItem('userGender', mp.gender);
                     }
                 }
 
-                const res = await fetch(`http://localhost:3001/api/discovery/feed?limit=50&orthodoxBridge=${orthodoxBridge}&strictKnanaya=${strictKnanaya}${activeRite ? '&rite='+activeRite : ''}`, {
-                    headers: { 'x-user-id': userId ?? '' }
-                });
-
-                if (!res.ok) throw new Error('Failed to fetch discovery feed');
-                const resultData = await res.json();
-                
-                const randomImages = [
-                    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80',
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
-                    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80'
-                ];
-
-                if (resultData && resultData.profiles && resultData.profiles.length > 0) {
-                    const mappedProfiles: MatchProfile[] = resultData.profiles.map((p: any, i: number) => {
-                        return {
-                            ...p,
-                            image: p.image || randomImages[i % randomImages.length]
-                        };
+                // ── Step 2: Try backend API (4-second timeout) ────────────────
+                let backendSucceeded = false;
+                try {
+                    const params = new URLSearchParams({
+                        limit: '50',
+                        orthodoxBridge: String(orthodoxBridge),
+                        strictKnanaya: String(strictKnanaya),
                     });
-                    setProfiles(mappedProfiles);
+                    if (activeRite) params.set('rite', activeRite);
+                    if (advancedFilters.ageRange[0] !== 18) params.set('minAge', String(advancedFilters.ageRange[0]));
+                    if (advancedFilters.ageRange[1] !== 60) params.set('maxAge', String(advancedFilters.ageRange[1]));
+                    if (advancedFilters.location) params.set('location', advancedFilters.location);
+                    if (advancedFilters.rite !== 'Any') params.set('rite', advancedFilters.rite);
+                    if (advancedFilters.maritalStatus !== 'Any') params.set('maritalStatus', advancedFilters.maritalStatus);
+                    if (advancedFilters.education !== 'Any') params.set('education', advancedFilters.education);
+                    if (advancedFilters.diet !== 'Any') params.set('diet', advancedFilters.diet);
+                    if (advancedFilters.motherTongue !== 'Any') params.set('motherTongue', advancedFilters.motherTongue);
+                    if (advancedFilters.smoke !== 'any') params.set('smoke', advancedFilters.smoke === 'yes' ? 'true' : 'false');
+                    if (advancedFilters.drink !== 'any') params.set('drink', advancedFilters.drink === 'yes' ? 'true' : 'false');
+
+                    const res = await fetch(`http://localhost:3001/api/discovery/feed?${params.toString()}`, {
+                        signal: AbortSignal.timeout(4000),
+                        headers: { 'x-user-id': userId ?? '', 'x-user-gender': userGender ?? '' },
+                    });
+                    if (res.ok) {
+                        const resultData = await res.json();
+                        if (resultData?.profiles?.length > 0) {
+                            const maleImgs = [
+                                'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
+                                'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80',
+                                'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800&q=80',
+                                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80',
+                            ];
+                            const femaleImgs = [
+                                'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80',
+                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
+                                'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80',
+                                'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=800&q=80',
+                            ];
+                            const fbImgs = userGender === 'female' ? maleImgs : femaleImgs;
+                            setProfiles(resultData.profiles.map((p: any, i: number) => ({
+                                ...p,
+                                image: p.image || fbImgs[i % fbImgs.length],
+                                culturalDistance: p.culturalDistance ?? undefined,
+                            })));
+                            backendSucceeded = true;
+                        }
+                    }
+                } catch {
+                    // Backend unavailable — continue to Supabase direct
+                }
+                if (backendSucceeded) return;
+
+                // ── Step 3: Query Supabase directly ───────────────────────────
+                console.log('[Discovery] Backend unavailable — querying Supabase directly');
+
+                const targetGender = userGender === 'male' ? 'female' : userGender === 'female' ? 'male' : null;
+
+                const RITE_DISPLAY_MAP: Record<string, string> = {
+                    SYRO_MALABAR: 'Syro-Malabar', LATIN: 'Latin',
+                    KNANAYA_CATHOLIC: 'Knanaya Catholic', MALANKARA_ORTHODOX: 'Malankara Orthodox',
+                    SYRO_MALANKARA: 'Syro-Malankara', OTHER: 'Other',
+                };
+                const RITE_REVERSE: Record<string, string> = {
+                    'Syro-Malabar': 'SYRO_MALABAR', 'Latin': 'LATIN',
+                    'Knanaya Catholic': 'KNANAYA_CATHOLIC', 'Malankara Orthodox': 'MALANKARA_ORTHODOX',
+                    'Syro-Malankara': 'SYRO_MALANKARA',
+                };
+
+                let q = supabase
+                    .from('Profile')
+                    .select('*')
+                    .neq('userId', userId ?? '')
+                    .limit(50)
+                    .order('createdAt', { ascending: false });
+
+                if (targetGender) q = q.eq('gender', targetGender);
+                if (strictKnanaya) q = q.eq('rite', 'KNANAYA_CATHOLIC');
+
+                const riteFilterVal = advancedFilters.rite !== 'Any'
+                    ? advancedFilters.rite
+                    : activeRite ?? null;
+                if (riteFilterVal && !strictKnanaya) {
+                    q = q.eq('rite', RITE_REVERSE[riteFilterVal] ?? riteFilterVal);
+                }
+                if (advancedFilters.ageRange[0] !== 18) q = q.gte('age', advancedFilters.ageRange[0]);
+                if (advancedFilters.ageRange[1] !== 60) q = q.lte('age', advancedFilters.ageRange[1]);
+                if (advancedFilters.location.trim()) q = q.ilike('location', `%${advancedFilters.location.trim()}%`);
+                if (advancedFilters.maritalStatus !== 'Any') q = q.eq('maritalStatus', advancedFilters.maritalStatus);
+                if (advancedFilters.diet !== 'Any') q = q.eq('dietaryPreference', advancedFilters.diet);
+
+                const { data: dbProfiles, error: dbError } = await q;
+                if (dbError) { console.error('Supabase query error:', dbError.message); throw dbError; }
+
+                if (dbProfiles && dbProfiles.length > 0) {
+                    // Batch-fetch primary photos
+                    const uids = dbProfiles.map((p: any) => p.userId);
+                    const { data: photos } = await supabase
+                        .from('Photo').select('userId,url').in('userId', uids).eq('isPrimary', true);
+                    const photoMap: Record<string, string> = {};
+                    (photos ?? []).forEach((ph: any) => { photoMap[ph.userId] = ph.url; });
+
+                    // Ghost-mode check via User table
+                    const { data: users } = await supabase
+                        .from('User').select('id,ghostMode').in('id', uids);
+                    const ghostSet = new Set((users ?? []).filter((u: any) => u.ghostMode).map((u: any) => u.id));
+
+                    const myRite = myProfileData?.rite ?? '';
+                    const compatScore = (rite: string): 'green' | 'yellow' | 'red' => {
+                        if (!myRite) return 'yellow';
+                        if (rite === myRite) return 'green';
+                        const eastern = ['SYRO_MALABAR','SYRO_MALANKARA','MALANKARA_ORTHODOX'];
+                        if (eastern.includes(rite) && eastern.includes(myRite)) return 'yellow';
+                        if (['KNANAYA_CATHOLIC'].includes(rite) || ['KNANAYA_CATHOLIC'].includes(myRite)) return 'red';
+                        return 'yellow';
+                    };
+
+                    const maleImgs = [
+                        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
+                        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80',
+                        'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800&q=80',
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80',
+                        'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=800&q=80',
+                    ];
+                    const femaleImgs = [
+                        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80',
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80',
+                        'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80',
+                        'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=800&q=80',
+                        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80',
+                    ];
+                    const fbImgs = userGender === 'female' ? maleImgs : femaleImgs;
+
+                    const mapped: MatchProfile[] = dbProfiles
+                        .filter((p: any) => !ghostSet.has(p.userId))
+                        .map((p: any, i: number) => ({
+                            id: p.userId,
+                            name: p.firstName || 'Anonymous',
+                            age: p.age ?? 25,
+                            gender: (p.gender ?? targetGender ?? 'male') as 'male' | 'female',
+                            location: p.location ?? '',
+                            rite: RITE_DISPLAY_MAP[p.rite] ?? p.rite ?? '',
+                            image: photoMap[p.userId] || fbImgs[i % fbImgs.length],
+                            compatibility: compatScore(p.rite),
+                            hobbies: p.hobbies ?? [],
+                            scoutRecommended: false,
+                        }));
+
+                    setProfiles(mapped);
                 } else {
-                    console.log('No profiles found in DB, falling back to MOCK_PROFILES');
-                    const filteredMock = MOCK_PROFILES.filter(p => 
+                    // ── Step 4: Mock fallback ─────────────────────────────────
+                    console.log('[Discovery] No profiles in DB — using mock data');
+                    setProfiles(MOCK_PROFILES.filter(p =>
                         userGender === 'male' ? p.gender === 'female' : p.gender === 'male'
-                    );
-                    setProfiles(filteredMock);
+                    ));
                 }
             } catch (e) {
-                console.error('Error fetching profiles', e);
-                console.log('Falling back to MOCK_PROFILES due to error');
-                const userGender = localStorage.getItem('userGender') || 'female';
-                const filteredMock = MOCK_PROFILES.filter(p => 
-                    userGender === 'male' ? p.gender === 'female' : p.gender === 'male'
-                );
-                setProfiles(filteredMock);
+                console.error('[Discovery] Fetch failed:', e);
+                const g = localStorage.getItem('userGender') || 'female';
+                setProfiles(MOCK_PROFILES.filter(p => g === 'male' ? p.gender === 'female' : p.gender === 'male'));
             } finally {
                 setLoading(false);
             }
@@ -353,18 +473,27 @@ export default function MatchFeedGrid({
         // Orthodox Bridge Match Boundary
         if (!orthodoxBridge && profile.rite.includes('Orthodox')) return false;
 
-        // Standard Rite Base filter
+        // Standard Rite Base filter (from FilterControlBar quick pill)
         if (activeRite && profile.rite !== activeRite) return false;
 
+        // Advanced filter: rite override
+        if (advancedFilters.rite !== 'Any' && profile.rite !== advancedFilters.rite) return false;
+
         // Age filter
-        if (profile.age < ageRange[0] || profile.age > ageRange[1]) return false;
+        if (profile.age < advancedFilters.ageRange[0] || profile.age > advancedFilters.ageRange[1]) return false;
+
+        // Location filter (partial, case-insensitive)
+        if (advancedFilters.location.trim()) {
+            const loc = advancedFilters.location.toLowerCase();
+            if (!profile.location?.toLowerCase().includes(loc)) return false;
+        }
 
         // Search text matching
         if (searchQuery.trim().length > 0) {
             const query = searchQuery.toLowerCase().trim();
             const matchesName = profile.name.toLowerCase().includes(query);
             const matchesRite = profile.rite.toLowerCase().includes(query);
-            const matchesLocation = profile.location.toLowerCase().includes(query);
+            const matchesLocation = profile.location?.toLowerCase().includes(query);
             const matchesHobbies = profile.hobbies && profile.hobbies.some(h => h.toLowerCase().includes(query));
             
             if (!matchesName && !matchesRite && !matchesLocation && !matchesHobbies) return false;

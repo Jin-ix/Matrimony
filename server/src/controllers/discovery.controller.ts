@@ -12,16 +12,23 @@ export async function getDiscoveryFeed(req: Request, res: Response, next: NextFu
             maxAge: req.query.maxAge ? parseInt(req.query.maxAge as string) : undefined,
             education: req.query.education as string | undefined,
             diet: req.query.diet as string | undefined,
+            location: req.query.location as string | undefined,
+            maritalStatus: req.query.maritalStatus as string | undefined,
+            motherTongue: req.query.motherTongue as string | undefined,
+            smoke: req.query.smoke === 'true' ? true : req.query.smoke === 'false' ? false : undefined,
+            drink: req.query.drink === 'true' ? true : req.query.drink === 'false' ? false : undefined,
         };
 
         const cursor = req.query.cursor as string | undefined;
         const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+        const genderHint = req.headers['x-user-gender'] as string | undefined;
 
         const result = await discoveryService.getDiscoveryFeed(
             req.user!.userId,
             filters,
             cursor,
-            Math.min(limit, 50)
+            Math.min(limit, 50),
+            genderHint
         );
 
         res.json(result);

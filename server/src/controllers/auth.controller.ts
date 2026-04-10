@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import * as otpService from '../services/otp.service.js';
 import * as linkedinService from '../services/linkedin.service.js';
+import * as instagramService from '../services/instagram.service.js';
 import prisma from '../config/database.js';
 
 
@@ -148,6 +149,79 @@ export async function linkedInCallback(req: Request, res: Response, next: NextFu
         } else {
             res.json({ linkedInData });
         }
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ─── Instagram OAuth ──────────────────────────────────────────
+export async function instagramAuth(req: Request, res: Response) {
+    const userId = req.query.userId as string || '';
+    const isPopup = req.query.popup === 'true';
+    const statePayload = JSON.stringify({ userId, popup: isPopup });
+    const state = Buffer.from(statePayload).toString('base64');
+
+    const url = instagramService.getInstagramAuthUrl(state);
+    res.redirect(url);
+}
+
+export async function instagramCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { code, state } = req.query;
+        if (!code || typeof code !== 'string') {
+            res.status(400).json({ error: 'Authorization code required' });
+            return;
+        }
+
+        let targetUserId = req.user?.userId;
+        let isPopup = false;
+
+        if (state && typeof state === 'string') {
+            try {
+                const parsed = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+                if (parsed.userId) targetUserId = parsed.userId;
+                isPopup = parsed.popup;
+            } catch (e) {
+                if (state && !state.includes('{')) targetUserId = state;
+            }
+        }
+
+        const igData = await instagramService.exchangeInstagramCode(code);
+
+        // Store Instagram username in the Profile table
+        if (targetUserId) {
+            await prisma.profile.updateMany({
+                where: { userId: targetUserId },
+                data: { videoIcebreakerUrl: `@${igData.username}` } as any,
+            });
+            // Also store in a generic JSON field via raw update for instagramHandle
+            await prisma.$executeRawUnsafe(
+                `UPDATE "Profile" SET "instagramHandle" = $1 WHERE "userId" = $2`,
+                igData.username,
+                targetUserId
+            ).catch(() => {
+                // Column may not exist yet – ignore; username is returned to frontend
+            });
+        }
+
+        if (isPopup) {
+            res.send(`
+                <html><body>
+                <script>
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'INSTAGRAM_SUCCESS',
+                            data: ${JSON.stringify(igData)}
+                        }, '*');
+                        window.close();
+                    }
+                </script>
+                </body></html>
+            `);
+            return;
+        }
+
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings?instagram=success`);
     } catch (error) {
         next(error);
     }

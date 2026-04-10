@@ -6,30 +6,20 @@ import VerificationModule from '../components/onboarding/VerificationModule';
 import ConversationalAgent from '../components/onboarding/ConversationalAgent';
 import MediaUploadModal from '../components/onboarding/MediaUploadModal';
 
-import RoleSelection from '../components/onboarding/RoleSelection';
+
 
 import { supabase } from '../lib/supabase';
 
-type OnboardingState = 'role' | 'verification' | 'chat' | 'upload' | 'transitioning';
+type OnboardingState = 'verification' | 'chat' | 'upload' | 'transitioning';
 
 export default function Onboarding() {
-    const [step, setStep] = useState<OnboardingState>('role');
-    const [role, setRole] = useState<'candidate' | 'scout' | null>(null);
+    const [step, setStep] = useState<OnboardingState>('verification');
+    const [role] = useState<'candidate' | 'scout'>('candidate');
     const [phone, setPhone] = useState<string>('');
     const [chatAnswers, setChatAnswers] = useState<Record<string, any>>({});
     const navigate = useNavigate();
 
-    const handleRoleSelection = (selectedRole: 'candidate' | 'scout') => {
-        setRole(selectedRole);
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            setPhone(user.phone || '');
-            setStep('chat');
-        } else {
-            setStep('verification');
-        }
-    };
+
 
     const handleVerified = (verifiedPhone: string) => {
         setPhone(verifiedPhone);
@@ -216,24 +206,10 @@ export default function Onboarding() {
             </div>
 
             {/* Content layer */}
-            <div className="fixed top-2 left-2 z-50 bg-black/80 text-white text-xs p-2 rounded">
-                DEBUG STEP: {step}
-            </div>
-            
+
             <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-6 pb-12">
                 <AnimatePresence>
-                    {step === 'role' && (
-                        <motion.div
-                            key="role"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
-                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                            className="absolute inset-0 flex flex-col items-center justify-center p-6"
-                        >
-                            <RoleSelection onSelectRole={handleRoleSelection} />
-                        </motion.div>
-                    )}
+
 
                     {step === 'verification' && (
                         <motion.div

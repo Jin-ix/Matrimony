@@ -6,6 +6,8 @@ import SecureChatFeed from '../components/messages/SecureChatFeed';
 import DecisionActionSheet from '../components/messages/DecisionActionSheet';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { supabase } from '../lib/supabase';
+
 interface MatchUser {
     id: string;
     name: string;
@@ -31,16 +33,65 @@ export default function Messages() {
             if (!userId || !chatId) return;
 
             try {
+                // Try backend first
                 const res = await fetch(`http://localhost:3001/api/conversations/${chatId}/messages`, {
+                    signal: AbortSignal.timeout(4000),
                     headers: { 'x-user-id': userId }
-                });
-                if (!res.ok) throw new Error('Failed to load chat');
+                }).catch(() => null);
+
+                if (res && res.ok) {
+                    const data = await res.json();
+                    if (data.matchUser) setMatchUser(data.matchUser);
+                    if (data.messages) setInitialMessages(data.messages);
+                    return;
+                }
+
+                // Fallback to Supabase direct
+                console.log('[Messages] Backend unavailable — querying Supabase directly');
                 
-                const data = await res.json();
-                if (data.matchUser) setMatchUser(data.matchUser);
-                if (data.messages) setInitialMessages(data.messages);
+                // 1. Get other participant
+                const { data: participants, error: pError } = await supabase
+                    .from('ConversationParticipant')
+                    .select('userId')
+                    .eq('conversationId', chatId)
+                    .neq('userId', userId)
+                    .single();
+                
+                if (pError || !participants) throw new Error('Conversation participant not found');
+                const otherUserId = participants.userId;
+
+                // 2. Get profile and photo
+                const [{ data: profile }, { data: photo }] = await Promise.all([
+                    supabase.from('Profile').select('firstName').eq('userId', otherUserId).single(),
+                    supabase.from('Photo').select('url').eq('userId', otherUserId).eq('isPrimary', true).single(),
+                ]);
+
+                setMatchUser({
+                    id: otherUserId,
+                    name: profile?.firstName || 'Unknown',
+                    avatar: photo?.url || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
+                });
+
+                // 3. Get initial messages
+                const { data: messages, error: mError } = await supabase
+                    .from('Message')
+                    .select('*')
+                    .eq('conversationId', chatId)
+                    .order('createdAt', { ascending: true })
+                    .limit(50);
+                
+                if (!mError && messages) {
+                    setInitialMessages(messages.map((m: any) => ({
+                        id: m.id,
+                        senderId: m.senderId,
+                        text: m.text,
+                        timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        flagged: false,
+                    })));
+                }
+
             } catch (err) {
-                console.error(err);
+                console.error('[Messages] error:', err);
             } finally {
                 setLoading(false);
             }

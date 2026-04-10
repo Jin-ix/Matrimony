@@ -2,7 +2,7 @@ import TopNavigation from '../components/discovery/TopNavigation';
 import FilterControlBar from '../components/discovery/FilterControlBar';
 import MatchFeedGrid from '../components/discovery/MatchFeedGrid';
 import UserProfileModal from '../components/discovery/UserProfileModal';
-import AdvancedFiltersModal from '../components/discovery/AdvancedFiltersModal';
+import AdvancedFiltersModal, { type AdvancedFilters } from '../components/discovery/AdvancedFiltersModal';
 import NotificationsPanel from '../components/discovery/NotificationsPanel';
 import WelcomeHubBanner from '../components/discovery/WelcomeHubBanner';
 import LandingAbout from '../components/onboarding/LandingAbout';
@@ -29,8 +29,19 @@ export default function Discovery() {
     const [orthodoxBridge, setOrthodoxBridge] = useState(false);
     const [strictKnanaya, setStrictKnanaya] = useState(false);
     const [activeRite, setActiveRite] = useState<string | null>(null);
-    const [ageRange, setAgeRange] = useState<number[]>([18, 60]);
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
+        ageRange: [18, 60],
+        location: '',
+        rite: 'Any',
+        maritalStatus: 'Any',
+        education: 'Any',
+        diet: 'Any',
+        motherTongue: 'Any',
+        smoke: 'any',
+        drink: 'any',
+    });
 
     // State for Banner customization
     const [userRole, setUserRole] = useState<string | null>(null);
@@ -125,12 +136,12 @@ export default function Discovery() {
                         <WelcomeHubBanner userRole={userRole} userGender={userGender} />
                     </div>
                     <MatchFeedGrid
-                        orthodoxBridge={orthodoxBridge}
-                        strictKnanaya={strictKnanaya}
-                        activeRite={activeRite}
-                        ageRange={ageRange}
-                        searchQuery={searchQuery}
-                    />
+                    orthodoxBridge={orthodoxBridge}
+                    strictKnanaya={strictKnanaya}
+                    activeRite={activeRite}
+                    advancedFilters={advancedFilters}
+                    searchQuery={searchQuery}
+                />
                 </div>
 
                 {/* Scrollable Information Sections Placed Under Profiles */}
@@ -156,8 +167,8 @@ export default function Discovery() {
                 {showAdvancedFilters && (
                     <AdvancedFiltersModal
                         onClose={() => setShowAdvancedFilters(false)}
-                        initialAgeRange={ageRange}
-                        onApplyFilters={(newAgeRange) => setAgeRange(newAgeRange)}
+                        initialFilters={advancedFilters}
+                        onApplyFilters={(newFilters) => setAdvancedFilters(newFilters)}
                     />
                 )}
                 {showNotifications && <NotificationsPanel onClose={() => setShowNotifications(false)} />}

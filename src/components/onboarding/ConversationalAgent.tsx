@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, UserCircle2, CheckCircle2, Linkedin } from 'lucide-react';
+import { Send, UserCircle2, CheckCircle2 } from 'lucide-react';
 
 type QuestionType = 'text' | 'choice' | 'multi-choice' | 'email';
 
@@ -109,12 +109,7 @@ const QUESTIONS: Question[] = [
         text: (r) => r === 'candidate' ? `If you are comfortable sharing, what is your weight? (e.g., 65 kg or 145 lbs)` : `If you are comfortable sharing, what is their weight? (e.g., 65 kg or 145 lbs)`,
         validation: () => null
     },
-    {
-        id: 'complexion',
-        type: 'choice',
-        text: () => `Could you share the complexion? This helps families get a complete picture.`,
-        options: ['Very Fair', 'Fair', 'Wheatish', 'Dark']
-    },
+
     {
         id: 'bloodGroup',
         type: 'choice',
@@ -267,53 +262,7 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
         }, 1200); 
     };
 
-    const handleLinkedInImport = () => {
-        setIsTyping(true);
-        const importMsg: Message = {
-            id: Date.now().toString(),
-            sender: 'user',
-            text: 'Connect with LinkedIn'
-        };
-        setMessages(prev => [...prev, importMsg]);
 
-        const userId = localStorage.getItem('userId') || '';
-        const popupUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001'}/api/auth/linkedin?userId=${userId}&popup=true`;
-        
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        
-        const popup = window.open(popupUrl, 'linkedin', `width=${width},height=${height},left=${left},top=${top}`);
-
-        const listener = (event: MessageEvent) => {
-            if (event.data?.type === 'LINKEDIN_SUCCESS') {
-                window.removeEventListener('message', listener);
-                
-                const scrapedData = event.data.data;
-                const mockLinkedInData: ProfileData = {
-                    name: scrapedData.name || 'LinkedIn User',
-                    occupation: scrapedData.occupation || 'Software Engineer',
-                    employer: scrapedData.employer || 'Tech Corp',
-                    education: scrapedData.education || 'Master\'s Degree',
-                };
-
-                setIsTyping(false);
-                const successMsg: Message = {
-                    id: Date.now().toString() + 'ai',
-                    sender: 'ai',
-                    text: 'Beautiful! I have successfully imported your professional details from LinkedIn. Our sacred profile is almost ready.'
-                };
-                setMessages(prev => [...prev, successMsg]);
-
-                setTimeout(() => {
-                    onComplete({ ...profileData, ...mockLinkedInData });
-                }, 3000);
-            }
-        };
-
-        window.addEventListener('message', listener);
-    };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -482,27 +431,7 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
                     )}
                 </AnimatePresence>
 
-                {scriptIndex === 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 }}
-                        className="mb-2"
-                    >
-                        <button
-                            onClick={handleLinkedInImport}
-                            className="w-full flex items-center justify-center space-x-2 bg-[#0077b5] text-white py-3 rounded-2xl hover:bg-[#005a87] transition-colors shadow-sm text-sm font-medium"
-                        >
-                            <Linkedin className="w-4 h-4" />
-                            <span>Import details from LinkedIn</span>
-                        </button>
-                        <div className="flex items-center justify-center space-x-2 mt-3 mb-1">
-                            <div className="h-px bg-gold-200/50 flex-1"></div>
-                            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">or chat manually</span>
-                            <div className="h-px bg-gold-200/50 flex-1"></div>
-                        </div>
-                    </motion.div>
-                )}
+
                 
                 {/* Only render text input if the current question is not a choice type */}
                 {(!currentQuestion || (currentQuestion.type !== 'choice' && currentQuestion.type !== 'multi-choice')) && (
