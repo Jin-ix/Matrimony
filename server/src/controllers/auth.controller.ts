@@ -4,6 +4,7 @@ import * as otpService from '../services/otp.service.js';
 import * as linkedinService from '../services/linkedin.service.js';
 import * as instagramService from '../services/instagram.service.js';
 import prisma from '../config/database.js';
+import { randomUUID } from 'crypto';
 
 
 export async function register(req: Request, res: Response, next: NextFunction) {
@@ -248,7 +249,11 @@ export async function linkParent(req: Request, res: Response, next: NextFunction
         const link = await prisma.parentCandidateLink.upsert({
             where: { parentId_candidateId: { parentId, candidateId } },
             update: {},
-            create: { parentId, candidateId },
+            create: { 
+                id: randomUUID(), 
+                parentId, 
+                candidateId 
+            },
         });
 
         res.status(201).json({ success: true, link });

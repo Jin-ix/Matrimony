@@ -63,25 +63,26 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
             ref={ref}
             layoutId={`card-${profile.id}`}
             style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
+            whileHover={{ scale: 1.03 }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             onClick={() => onClick(profile)}
-            className={`relative h-[480px] w-full cursor-pointer rounded-3xl bg-white transition-all duration-500 ease-out border-2 ${compatibilityColors[profile.compatibility]} overflow-hidden group ${profile.status === 'passed' ? 'opacity-60 grayscale-[0.5]' : ''}`}
+            className={`relative h-[480px] w-full cursor-pointer rounded-3xl bg-white dark:bg-sacred-midnight transition-all duration-500 ease-out border-2 ${compatibilityColors[profile.compatibility]} overflow-hidden group ${profile.status === 'passed' ? 'opacity-60 grayscale-[0.5]' : ''}`}
         >
             {/* Elegant Inner Ring */}
-            <div className="absolute inset-2 border border-gold-400/30 rounded-2xl pointer-events-none z-10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700" />
+            <div className="absolute inset-2 border border-gold-400/30 rounded-2xl pointer-events-none z-10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700" style={{ transform: 'translateZ(20px)' }} />
 
             {/* Background Image */}
             <motion.img
                 layoutId={`image-${profile.id}`}
                 src={profile.image}
                 alt={profile.name}
-                className={`absolute inset-0 h-full w-full object-cover ${profile.status === 'liked' ? 'scale-105' : ''}`}
+                className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${profile.status === 'liked' ? 'scale-105' : ''}`}
                 style={{ translateZ: -50 }}
             />
 
             {/* Gradient Overlay */}
-            <div className={`absolute inset-0 bg-gradient-to-t pointer-events-none ${profile.status === 'liked' ? 'from-green-900/90 via-sacred-dark/50 to-green-900/10' : 'from-sacred-dark/90 via-sacred-dark/30 to-transparent'}`} />
+            <div className={`absolute inset-0 bg-gradient-to-t pointer-events-none transition-colors duration-700 ${profile.status === 'liked' ? 'from-green-900/90 via-sacred-dark/50 to-green-900/10' : profile.compatibility === 'green' ? 'from-gold-900/90 via-sacred-dark/50 to-transparent' : 'from-sacred-dark/95 via-sacred-dark/40 to-transparent'}`} />
 
             {/* Status Overlays */}
             {profile.status === 'liked' && (

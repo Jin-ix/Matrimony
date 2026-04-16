@@ -105,7 +105,14 @@ export default function Connections() {
     const fetchAll = useCallback(async () => {
         setLoading(true);
         const userId = localStorage.getItem('userId');
+        const userRole = localStorage.getItem('userRole');
+        
         if (!userId) { navigate('/auth'); return; }
+        
+        if (userRole === 'scout') {
+            navigate('/kitchen-table');
+            return;
+        }
 
         try {
             // 1) Interests sent BY me

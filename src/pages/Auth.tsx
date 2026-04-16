@@ -60,18 +60,24 @@ export default function Auth() {
                     // If scout (parent), check if already linked; if not, show link modal
                     if (user.role === 'scout') {
                         try {
-                            const res = await fetch(`${API}/auth/my-link`, {
-                                headers: { 'x-user-id': user.id, 'x-user-role': 'scout' },
-                            });
-                            if (res.ok) {
-                                const linkData = await res.json();
-                                if (linkData.linkedUserId) {
-                                    localStorage.setItem('linkedCandidateId', linkData.linkedUserId);
-                                    const name = linkData.linkedUser?.profile?.firstName || 'your child';
-                                    localStorage.setItem('linkedCandidateName', name);
-                                    navigate('/discovery');
-                                    return;
-                                }
+                            const { data: links, error: linkError } = await supabase
+                                .from('ParentCandidateLink')
+                                .select('*')
+                                .eq('parentId', user.id);
+
+                            if (!linkError && links && links.length > 0) {
+                                const linkData = links[0];
+                                localStorage.setItem('linkedCandidateId', linkData.candidateId);
+                                
+                                const { data: profiles } = await supabase
+                                    .from('Profile')
+                                    .select('firstName')
+                                    .eq('userId', linkData.candidateId);
+                                    
+                                const name = (profiles && profiles.length > 0) ? profiles[0].firstName : 'your child';
+                                localStorage.setItem('linkedCandidateName', name);
+                                navigate('/discovery');
+                                return;
                             }
                         } catch (_) { /* no-op, proceed to modal */ }
 
@@ -84,14 +90,14 @@ export default function Auth() {
 
                     // Also load existing link for candidates (so KitchenTable knows their parent)
                     try {
-                        const res = await fetch(`${API}/auth/my-link`, {
-                            headers: { 'x-user-id': user.id, 'x-user-role': user.role },
-                        });
-                        if (res.ok) {
-                            const linkData = await res.json();
-                            if (linkData.linkedUserId) {
-                                localStorage.setItem('linkedParentId', linkData.linkedUserId);
-                            }
+                        const colToMatch = user.role === 'scout' ? 'parentId' : 'candidateId';
+                        const { data: links } = await supabase
+                            .from('ParentCandidateLink')
+                            .select('*')
+                            .eq(colToMatch, user.id);
+                        if (links && links.length > 0) {
+                            const linkedId = user.role === 'scout' ? links[0].candidateId : links[0].parentId;
+                            localStorage.setItem(user.role === 'scout' ? 'linkedCandidateId' : 'linkedParentId', linkedId);
                         }
                     } catch (_) { /* no-op */ }
 
@@ -159,16 +165,41 @@ export default function Auth() {
         setLinking(true);
         setLinkError(null);
         try {
-            const res = await fetch(`${API}/auth/link-parent`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parentId: pendingParentId, candidateId: candidateId.trim() }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                setLinkError(data.error || 'Failed to link accounts');
+            // Validate candidate exists
+            const { data: candidates, error: candError } = await supabase
+                .from('User')
+                .select('*')
+                .eq('id', candidateId.trim());
+
+            if (candError || !candidates || candidates.length === 0) {
+                setLinkError('Candidate account not found. Please check the ID.');
+                setLinking(false);
                 return;
             }
+            
+            // Check if link already exists
+            const { data: existing } = await supabase
+                .from('ParentCandidateLink')
+                .select('*')
+                .eq('parentId', pendingParentId)
+                .eq('candidateId', candidateId.trim());
+                
+            if (!existing || existing.length === 0) {
+                const { error: insertError } = await supabase
+                    .from('ParentCandidateLink')
+                    .insert([{
+                        id: crypto.randomUUID(),
+                        parentId: pendingParentId,
+                        candidateId: candidateId.trim()
+                    }]);
+                    
+                if (insertError) {
+                    setLinkError('Failed to link accounts: ' + insertError.message);
+                    setLinking(false);
+                    return;
+                }
+            }
+
             // Store link in localStorage
             localStorage.setItem('linkedCandidateId', candidateId.trim());
             setLinkSuccess(true);

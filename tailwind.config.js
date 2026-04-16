@@ -4,6 +4,7 @@ export default {
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
     ],
+    darkMode: 'class',
     theme: {
         extend: {
             colors: {
@@ -37,6 +38,7 @@ export default {
                     white: '#ffffff',
                     offwhite: '#FDFCFB',
                     dark: '#0f172a', // Deep elegant navy/charcoal replacing the dark red
+                    midnight: '#0B0F19', // The signature dark mode foundation
                     brand: '#d5a84b', // Gold base
                 },
                 pearl: {
@@ -64,6 +66,7 @@ export default {
                 'divine-glow': 'glow 4s ease-in-out infinite',
                 'float-slow': 'float 6s ease-in-out infinite',
                 'fade-in': 'fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                'shimmer': 'shimmer 2s infinite linear',
             },
             keyframes: {
                 fluid: {
@@ -89,6 +92,10 @@ export default {
                 fadeIn: {
                     '0%': { opacity: '0', transform: 'translateY(10px)' },
                     '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                shimmer: {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' },
                 }
             }
         },
