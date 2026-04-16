@@ -6,6 +6,7 @@ import KitchenTable from './pages/KitchenTable';
 import Connections from './pages/Connections';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
+import Promise from './pages/Promise';
 import { NotificationProvider } from './lib/notificationContext';
 
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/messages" element={<Connections />} />
           <Route path="/messages/:chatId" element={<Messages />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/promise" element={<Promise />} />
         </Routes>
       </NotificationProvider>
     </Router>
