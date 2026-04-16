@@ -1,6 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, UserCircle2, CheckCircle2 } from 'lucide-react';
+import { Send, UserCircle2, CheckCircle2, Sparkles } from 'lucide-react';
+
+// Typewriter hook for AI messages
+function useTypewriter(text: string, speed = 25, enabled = true) {
+    const [displayed, setDisplayed] = useState('');
+    const [done, setDone] = useState(false);
+    useEffect(() => {
+        if (!enabled) { setDisplayed(text); setDone(true); return; }
+        setDisplayed('');
+        setDone(false);
+        let i = 0;
+        const timer = setInterval(() => {
+            i++;
+            setDisplayed(text.slice(0, i));
+            if (i >= text.length) { clearInterval(timer); setDone(true); }
+        }, speed);
+        return () => clearInterval(timer);
+    }, [text, speed, enabled]);
+    return { displayed, done };
+}
+
+function TypewriterBubble({ text, isActive }: { text: string; isActive: boolean }) {
+    const { displayed, done } = useTypewriter(text, 20, isActive);
+    return (
+        <span>
+            {displayed}
+            {!done && <span className="inline-block w-0.5 h-4 bg-gold-500 ml-0.5 animate-pulse align-text-bottom" />}
+        </span>
+    );
+}
 
 type QuestionType = 'text' | 'choice' | 'multi-choice' | 'email';
 
@@ -106,8 +135,8 @@ const QUESTIONS: Question[] = [
     {
         id: 'weight',
         type: 'text',
-        text: (r) => r === 'candidate' ? `If you are comfortable sharing, what is your weight? (e.g., 65 kg or 145 lbs)` : `If you are comfortable sharing, what is their weight? (e.g., 65 kg or 145 lbs)`,
-        validation: () => null
+        text: (r) => r === 'candidate' ? `Could you share your weight? (e.g., 65 kg or 145 lbs)` : `Could you share their weight? (e.g., 65 kg or 145 lbs)`,
+        validation: (val) => typeof val === 'string' && val.trim().length >= 2 ? null : 'Please provide a valid weight (e.g., 65 kg or 145 lbs).'
     },
 
     {
@@ -131,7 +160,8 @@ const QUESTIONS: Question[] = [
     {
         id: 'employer',
         type: 'text',
-        text: (r) => r === 'candidate' ? `Who is your current employer or what is your business name?` : `Who is their current employer or business name?`
+        text: (r) => r === 'candidate' ? `Who is your current employer or what is your business name?` : `Who is their current employer or business name?`,
+        validation: (val) => typeof val === 'string' && val.trim().length >= 2 ? null : 'Please provide a valid employer or business name.'
     },
     {
         id: 'annualIncome',
@@ -148,12 +178,14 @@ const QUESTIONS: Question[] = [
     {
         id: 'fatherOccupation',
         type: 'text',
-        text: () => `What is the father's occupation?`
+        text: () => `What is the father's occupation?`,
+        validation: (val) => typeof val === 'string' && val.trim().length >= 2 ? null : 'Please provide the father\'s occupation.'
     },
     {
         id: 'motherOccupation',
         type: 'text',
-        text: () => `What is the mother's occupation?`
+        text: () => `What is the mother's occupation?`,
+        validation: (val) => typeof val === 'string' && val.trim().length >= 2 ? null : 'Please provide the mother\'s occupation.'
     },
     {
         id: 'siblingsCount',
@@ -208,12 +240,26 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
 
         const currentQ = QUESTIONS[scriptIndex];
         
+        // Mandatory check: every field must have a non-empty answer
+        if (typeof valToProcess === 'string' && valToProcess.trim().length === 0) {
+            setErrorMsg('This field is required. Please provide an answer to continue.');
+            return;
+        }
+        if (Array.isArray(valToProcess) && valToProcess.length === 0) {
+            setErrorMsg('Please select at least one option to continue.');
+            return;
+        }
+
         if (currentQ.validation) {
             const err = currentQ.validation(valToProcess);
             if (err) {
                 setErrorMsg(err);
                 return;
             }
+        } else if (typeof valToProcess === 'string' && valToProcess.trim().length < 2) {
+            // Fallback for any text field without explicit validation — still require meaningful input
+            setErrorMsg('Please provide a valid answer (at least 2 characters).');
+            return;
         }
 
         setErrorMsg(null);
@@ -296,23 +342,30 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
     };
 
     return (
+        <>
+        {/* Theater Mode Backdrop */}
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xl pointer-events-none"
+        />
         <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] glass backdrop-blur-3xl border border-white/50 bg-white/85 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)]"
+            className="relative z-50 flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[2.5rem] glass backdrop-blur-3xl border border-white/50 bg-white/85 dark:bg-sacred-midnight/90 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]"
         >
             {/* Header */}
-            <div className="flex items-center space-x-3 border-b border-gold-200/50 bg-white/50 px-6 py-4 backdrop-blur-md z-10">
+            <div className="flex items-center space-x-3 border-b border-gold-200/50 dark:border-white/10 bg-white/50 dark:bg-sacred-midnight/50 px-6 py-4 backdrop-blur-md z-10">
                 <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-gold-50 to-gold-100 text-gold-700 shadow-sm border border-gold-200">
-                        <UserCircle2 className="h-6 w-6 text-gold-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-gold-50 to-gold-100 dark:from-gold-900/30 dark:to-gold-800/30 text-gold-700 shadow-sm border border-gold-200 dark:border-gold-700/50">
+                        <Sparkles className="h-5 w-5 text-gold-600 dark:text-gold-400" />
                     </div>
-                    <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white shadow-sm ring-1 ring-green-600/20" />
+                    <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white dark:border-sacred-midnight shadow-sm ring-1 ring-green-600/20" />
                 </div>
                 <div>
-                    <h3 className="font-serif text-lg font-medium text-sacred-dark tracking-wide">Guide</h3>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-green-600/80">Active</p>
+                    <h3 className="font-serif text-lg font-medium text-sacred-dark dark:text-pearl-50 tracking-wide">Sacred Guide</h3>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-green-600/80 dark:text-green-400/80">Active</p>
                 </div>
             </div>
 
@@ -339,7 +392,9 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
                                         : 'bg-white text-sacred-dark rounded-tl-sm border border-gold-100 shadow-[0_4px_12px_rgba(0,0,0,0.03)]'
                                         }`}
                                 >
-                                    {msg.text}
+                                    {msg.sender === 'ai' ? (
+                                        <TypewriterBubble text={msg.text} isActive={isLastMsg} />
+                                    ) : msg.text}
                                 </div>
 
                                 {/* Render options directly beneath the active AI message */}
@@ -460,5 +515,6 @@ export default function ConversationalAgent({ role, onComplete, onMoodChange }: 
                 )}
             </div>
         </motion.div>
+        </>
     );
 }
