@@ -7,10 +7,11 @@ import ConversationalAgent from '../components/onboarding/ConversationalAgent';
 import MediaUploadModal from '../components/onboarding/MediaUploadModal';
 
 
+import BasicInfoForm from '../components/onboarding/BasicInfoForm';
 
 import { supabase } from '../lib/supabase';
 
-type OnboardingState = 'verification' | 'chat' | 'upload' | 'transitioning';
+type OnboardingState = 'verification' | 'basicInfo' | 'chat' | 'upload' | 'transitioning';
 
 export default function Onboarding() {
     const [step, setStep] = useState<OnboardingState>('verification');
@@ -23,11 +24,14 @@ export default function Onboarding() {
 
     const handleVerified = (verifiedPhone: string) => {
         setPhone(verifiedPhone);
+        setStep('basicInfo');
+    };
+
+    const handleBasicInfoComplete = () => {
         setStep('chat');
     };
 
-    const handleChatComplete = (answers: Record<string, any>) => {
-        setChatAnswers(answers);
+    const handleChatComplete = () => {
         setStep('upload');
     };
 
@@ -42,143 +46,49 @@ export default function Onboarding() {
             const userStr = localStorage.getItem('user');
             const authUser = userStr ? JSON.parse(userStr) : null;
             const userId = authUser?.id || crypto.randomUUID();
-            const email = chatAnswers.email || authUser?.email || null;
-            const now = new Date().toISOString();
             
-            // 1. Update/Upsert User
-            const { error: userError } = await supabase
-                .from('User')
-                .upsert([{
-                    id: userId,
-                    phone: phone,
-                    email: email,
-                    role: role || 'candidate',
-                    isVerified: true, 
-                    isPhoneVerified: true,
-                    updatedAt: now
-                }]);
-            
-            // Explicitly sync localStorage for Discovery page rendering
-            if (role) {
-                localStorage.setItem('userRole', role);
-            }
-            if (chatAnswers.gender) {
-                localStorage.setItem('userGender', chatAnswers.gender === 'Woman' ? 'female' : 'male');
-            }
-                
-            if (userError) {
-                console.error("Error creating user:", userError);
-                alert(`Failed to save user: ${userError.message}`);
-            } else {
-                // 2. Map Rite Enum
-                let mappedRite = 'OTHER';
-                const ansRite = chatAnswers.rite || '';
-                if (ansRite.includes('Syro-Malabar')) mappedRite = 'SYRO_MALABAR';
-                else if (ansRite.includes('Latin')) mappedRite = 'LATIN';
-                else if (ansRite.includes('Knanaya')) mappedRite = 'KNANAYA_CATHOLIC';
-                else if (ansRite.includes('Malankara Orthodox')) mappedRite = 'MALANKARA_ORTHODOX';
-                else if (ansRite.includes('Syro-Malankara')) mappedRite = 'SYRO_MALANKARA';
-
-                // 3. Insert Profile
-                const nameParts = (chatAnswers.name || '').trim().split(' ');
-                const firstName = nameParts[0] || 'Unknown';
-                const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Unknown';
-                
-                const { error: profileError } = await supabase
-                    .from('Profile')
-                    .insert([{
-                        id: crypto.randomUUID(),
-                        userId: userId,
-                        firstName,
-                        lastName,
-                        age: parseInt(chatAnswers.age) || 25,
-                        gender: chatAnswers.gender === 'Woman' ? 'female' : 'male',
-                        location: chatAnswers.occupation || 'Unknown', // Storing location with occupation currently
-                        rite: mappedRite,
-                        parish: chatAnswers.parish || null,
-                        bio: chatAnswers.familyValues || null,
-                        education: chatAnswers.education || null,
-                        dietaryPreference: chatAnswers.dietaryPreference || null,
-                        maritalStatus: chatAnswers.maritalStatus || 'Never Married',
-                        height: chatAnswers.height || null,
-                        sacramentsReceived: chatAnswers.sacramentsReceived || [],
-                        spiritualValues: chatAnswers.spiritualValues || null,
-                        occupation: chatAnswers.occupation || null,
-                        hobbies: chatAnswers.hobbies || [],
-                        weight: chatAnswers.weight || null,
-                        complexion: chatAnswers.complexion || null,
-                        bloodGroup: chatAnswers.bloodGroup || null,
-                        motherTongue: chatAnswers.motherTongue || null,
-                        familyType: chatAnswers.familyType || null,
-                        fatherOccupation: chatAnswers.fatherOccupation || null,
-                        motherOccupation: chatAnswers.motherOccupation || null,
-                        siblingsCount: chatAnswers.siblingsCount ? parseInt(chatAnswers.siblingsCount) : null,
-                        employer: chatAnswers.employer || null,
-                        annualIncome: chatAnswers.annualIncome || null,
-                        smoke: chatAnswers.smoke ? chatAnswers.smoke === 'Yes' ? true : false : null,
-                        drink: chatAnswers.drink ? chatAnswers.drink === 'Yes' ? true : false : null,
-                        updatedAt: now,
-                        profileComplete: 0.8
-                    }]);
-                    
-                if (profileError) console.error("Error creating profile:", profileError);
-
-                // 4. Save structured generic responses too just in case
-                const responsePromises = Object.entries(chatAnswers).map(([key, value], index) => {
-                    return supabase
-                        .from('OnboardingResponse')
-                        .insert([{
+            // 5. Photos
+            const photoPromises = photos.map((photo, index) => {
+                return new Promise<void>((resolve, reject) => {
+                    if (photo.isBlurred) {
+                        supabase.from('Photo').insert([{
                             id: crypto.randomUUID(),
                             userId: userId,
-                            step: index,
-                            question: key,
-                            answer: Array.isArray(value) ? value.join(', ') : value
-                        }]);
-                });
-                
-                // 5. Photos
-                const photoPromises = photos.map((photo, index) => {
-                    return new Promise<void>((resolve, reject) => {
-                        if (photo.isBlurred) {
+                            url: 'blurred_placeholder_url',
+                            publicId: 'blurred',
+                            isPrimary: index === 0,
+                            order: index
+                        }]).then(({ error }) => {
+                            if (error) reject(error);
+                            else resolve();
+                        });
+                    } else {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64String = reader.result as string;
                             supabase.from('Photo').insert([{
                                 id: crypto.randomUUID(),
                                 userId: userId,
-                                url: 'blurred_placeholder_url',
-                                publicId: 'blurred',
+                                url: base64String,
+                                publicId: 'clear',
                                 isPrimary: index === 0,
                                 order: index
                             }]).then(({ error }) => {
                                 if (error) reject(error);
                                 else resolve();
                             });
-                        } else {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const base64String = reader.result as string;
-                                supabase.from('Photo').insert([{
-                                    id: crypto.randomUUID(),
-                                    userId: userId,
-                                    url: base64String,
-                                    publicId: 'clear',
-                                    isPrimary: index === 0,
-                                    order: index
-                                }]).then(({ error }) => {
-                                    if (error) reject(error);
-                                    else resolve();
-                                });
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(photo.file);
-                        }
-                    });
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(photo.file);
+                    }
                 });
-                
-                await Promise.all([...responsePromises, ...photoPromises]);
-                console.log("Onboarding data & profile saved successfully to Supabase!");
-            }
+            });
+            
+            await Promise.all(photoPromises);
+            console.log("Onboarding photos saved successfully to Supabase!");
         } catch (e) {
-            console.error("Failed to save onboarding data", e);
-            alert("An unexpected error occurred while saving the data.");
+            console.error("Failed to save photos data", e);
+            alert("An unexpected error occurred while uploading photos.");
         }
 
         setTimeout(() => {
@@ -207,6 +117,18 @@ export default function Onboarding() {
 
             {/* Content layer */}
 
+            {/* Skip Button */}
+            {step !== 'transitioning' && (
+                <div className="absolute top-6 right-6 z-50">
+                    <button 
+                        onClick={() => navigate('/discovery')}
+                        className="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors bg-white/50 hover:bg-white/80 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-200 shadow-sm"
+                    >
+                        Skip for now
+                    </button>
+                </div>
+            )}
+
             <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-6 pb-12">
                 <AnimatePresence>
 
@@ -221,6 +143,19 @@ export default function Onboarding() {
                             className="absolute inset-0 flex flex-col items-center justify-center p-6"
                         >
                             <VerificationModule onVerified={handleVerified} />
+                        </motion.div>
+                    )}
+
+                    {step === 'basicInfo' && (
+                        <motion.div
+                            key="basicInfo"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                            className="absolute inset-0 flex flex-col items-center justify-center p-6"
+                        >
+                            <BasicInfoForm onComplete={handleBasicInfoComplete} />
                         </motion.div>
                     )}
 

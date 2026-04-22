@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { ShieldCheck, ArrowRight, Mail, Lock, Phone, Users, User, Link2, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Mail, Lock, Phone, Users, User, Link2, X, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const API = 'http://localhost:3001/api';
 
@@ -12,6 +12,9 @@ export default function Auth() {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [role, setRole] = useState<'candidate' | 'scout'>('candidate');
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -32,125 +35,120 @@ export default function Auth() {
 
         try {
             if (isLogin) {
-                // Login Flow
-                const { data: users, error: fetchError } = await supabase
-                    .from('User')
-                    .select('*')
-                    .eq('email', email)
-                    .eq('passwordHash', password);
+                // Login Flow via Backend
+                const response = await fetch(`${API}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: email, password })
+                });
 
-                if (fetchError) throw fetchError;
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Invalid email or password');
+                }
 
-                if (users && users.length > 0) {
-                    const user = users[0];
-                    localStorage.setItem('user', JSON.stringify(user));
-                    localStorage.setItem('userId', user.id);
-                    localStorage.setItem('userRole', user.role);
+                const { user, tokens } = data;
+                localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('userId', user.id);
+                localStorage.setItem('userRole', user.role);
+                localStorage.setItem('token', tokens.accessToken); // Store secure JWT
+                if (tokens.refreshToken) {
+                    localStorage.setItem('refreshToken', tokens.refreshToken);
+                }
 
-                    // Fetch Profile to get gender
-                    const { data: profiles } = await supabase
-                        .from('Profile')
-                        .select('gender')
-                        .eq('userId', user.id);
+                // Fetch Profile to get gender
+                const { data: profiles } = await supabase
+                    .from('Profile')
+                    .select('gender')
+                    .eq('userId', user.id);
 
-                    if (profiles && profiles.length > 0) {
-                        localStorage.setItem('userGender', profiles[0].gender);
-                    }
+                if (profiles && profiles.length > 0) {
+                    localStorage.setItem('userGender', profiles[0].gender);
+                }
 
-                    // If scout (parent), check if already linked; if not, show link modal
-                    if (user.role === 'scout') {
-                        try {
-                            const { data: links, error: linkError } = await supabase
-                                .from('ParentCandidateLink')
-                                .select('*')
-                                .eq('parentId', user.id);
-
-                            if (!linkError && links && links.length > 0) {
-                                const linkData = links[0];
-                                localStorage.setItem('linkedCandidateId', linkData.candidateId);
-                                
-                                const { data: profiles } = await supabase
-                                    .from('Profile')
-                                    .select('firstName')
-                                    .eq('userId', linkData.candidateId);
-                                    
-                                const name = (profiles && profiles.length > 0) ? profiles[0].firstName : 'your child';
-                                localStorage.setItem('linkedCandidateName', name);
-                                navigate('/discovery');
-                                return;
-                            }
-                        } catch (_) { /* no-op, proceed to modal */ }
-
-                        // No link yet — show modal
-                        setPendingParentId(user.id);
-                        setShowLinkModal(true);
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Also load existing link for candidates (so KitchenTable knows their parent)
+                // If scout (parent), check if already linked; if not, show link modal
+                if (user.role === 'scout') {
                     try {
-                        const colToMatch = user.role === 'scout' ? 'parentId' : 'candidateId';
-                        const { data: links } = await supabase
+                        const { data: links, error: linkError } = await supabase
                             .from('ParentCandidateLink')
                             .select('*')
-                            .eq(colToMatch, user.id);
-                        if (links && links.length > 0) {
-                            const linkedId = user.role === 'scout' ? links[0].candidateId : links[0].parentId;
-                            localStorage.setItem(user.role === 'scout' ? 'linkedCandidateId' : 'linkedParentId', linkedId);
-                        }
-                    } catch (_) { /* no-op */ }
+                            .eq('parentId', user.id);
 
-                    navigate('/discovery');
-                } else {
-                    setError('Invalid email or password');
+                        if (!linkError && links && links.length > 0) {
+                            const linkData = links[0];
+                            localStorage.setItem('linkedCandidateId', linkData.candidateId);
+                            
+                            const { data: cProfiles } = await supabase
+                                .from('Profile')
+                                .select('firstName')
+                                .eq('userId', linkData.candidateId);
+                                
+                            const name = (cProfiles && cProfiles.length > 0) ? cProfiles[0].firstName : 'your child';
+                            localStorage.setItem('linkedCandidateName', name);
+                            navigate('/discovery');
+                            return;
+                        }
+                    } catch (_) { /* no-op, proceed to modal */ }
+
+                    // No link yet — show modal
+                    setPendingParentId(user.id);
+                    setShowLinkModal(true);
+                    setLoading(false);
+                    return;
                 }
+
+                // Also load existing link for candidates (so KitchenTable knows their parent)
+                try {
+                    const colToMatch = user.role === 'scout' ? 'parentId' : 'candidateId';
+                    const { data: links } = await supabase
+                        .from('ParentCandidateLink')
+                        .select('*')
+                        .eq(colToMatch, user.id);
+                    if (links && links.length > 0) {
+                        const linkedId = user.role === 'scout' ? links[0].candidateId : links[0].parentId;
+                        localStorage.setItem(user.role === 'scout' ? 'linkedCandidateId' : 'linkedParentId', linkedId);
+                    }
+                } catch (_) { /* no-op */ }
+
+                navigate('/discovery');
+
             } else {
-                // Register Flow
+                // Register Flow via Backend
                 if (password !== confirmPassword) {
                     setError('Passwords do not match');
                     setLoading(false);
                     return;
                 }
 
-                const userId = crypto.randomUUID();
-                const now = new Date().toISOString();
+                const response = await fetch(`${API}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, phone, password, role })
+                });
 
-                const { error: insertError } = await supabase
-                    .from('User')
-                    .insert([{
-                        id: userId,
-                        email: email,
-                        phone: phone,
-                        passwordHash: password,
-                        role: role,
-                        isVerified: true,
-                        isPhoneVerified: true,
-                        updatedAt: now
-                    }]);
-
-                if (insertError) {
-                    if (insertError.code === '23505') {
-                        setError('User with this email or phone already exists.');
-                    } else {
-                        throw insertError;
-                    }
-                } else {
-                    const user = { id: userId, email, phone, role };
-                    localStorage.setItem('user', JSON.stringify(user));
-                    localStorage.setItem('userId', userId);
-                    localStorage.setItem('userRole', role);
-
-                    if (role === 'scout') {
-                        // Show link modal immediately after scout registration
-                        setPendingParentId(userId);
-                        setShowLinkModal(true);
-                        setLoading(false);
-                        return;
-                    }
-
-                    navigate('/onboarding');
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'User with this email or phone already exists.');
                 }
+
+                const { user, tokens } = data;
+                localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('userId', user.id);
+                localStorage.setItem('userRole', user.role);
+                localStorage.setItem('token', tokens.accessToken); // Store secure JWT
+                if (tokens.refreshToken) {
+                    localStorage.setItem('refreshToken', tokens.refreshToken);
+                }
+
+                if (role === 'scout') {
+                    // Show link modal immediately after scout registration
+                    setPendingParentId(user.id);
+                    setShowLinkModal(true);
+                    setLoading(false);
+                    return;
+                }
+
+                navigate('/onboarding');
             }
         } catch (err: any) {
             console.error(err);
@@ -227,8 +225,14 @@ export default function Auth() {
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-gold-50 to-gold-100 text-gold-600 shadow-inner border border-gold-200 mb-2">
                         <ShieldCheck className="h-8 w-8 text-gold-500" />
                     </div>
-                    <h2 className="text-3xl font-serif text-sacred-dark">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-                    <p className="text-sm text-gray-600">{isLogin ? 'Enter your details to sign in' : 'Start your sacred journey today'}</p>
+                    <h2 className="text-3xl font-serif text-sacred-dark">
+                        {isForgotPassword ? 'Reset Password' : (isLogin ? 'Welcome Back' : 'Create Account')}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                        {isForgotPassword 
+                            ? 'Enter your email to receive a secure reset link' 
+                            : (isLogin ? 'Enter your details to sign in' : 'Start your sacred journey today')}
+                    </p>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -245,106 +249,188 @@ export default function Auth() {
                 </AnimatePresence>
 
                 <form onSubmit={handleSubmit} className="w-full space-y-4">
-                    {/* Role selector — only on signup */}
-                    {!isLogin && (
-                        <div className="grid grid-cols-2 gap-3">
+                    {isForgotPassword ? (
+                        <>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Registered Email Address"
+                                    required
+                                    className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
+                                />
+                            </div>
                             <button
                                 type="button"
-                                onClick={() => setRole('candidate')}
-                                className={`flex flex-col items-center gap-2 py-4 px-3 rounded-2xl border-2 transition-all duration-200 ${role === 'candidate'
-                                    ? 'border-gold-500 bg-gold-50 text-sacred-dark shadow-sm'
-                                    : 'border-gray-200 bg-white/60 text-gray-400 hover:border-gold-300'}`}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (!email) {
+                                        setError('Please enter your email address.');
+                                        return;
+                                    }
+                                    setLoading(true);
+                                    setError(null);
+                                    setTimeout(() => {
+                                        setError('If an account exists, a password reset link has been sent to your email.');
+                                        setLoading(false);
+                                    }, 1500);
+                                }}
+                                disabled={loading}
+                                className="mt-6 flex w-full items-center justify-center space-x-2 rounded-xl bg-sacred-dark py-4 font-medium text-sacred-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
                             >
-                                <User className="h-6 w-6" />
-                                <span className="text-xs font-semibold">I'm the Candidate</span>
+                                <span>{loading ? 'Sending...' : 'Send Reset Link'}</span>
+                                {!loading && <ArrowRight className="h-4 w-4" />}
                             </button>
+                            <div className="mt-6 text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsForgotPassword(false);
+                                        setError(null);
+                                    }}
+                                    className="text-sm font-medium text-gold-700 hover:text-gold-900 transition-colors"
+                                >
+                                    Back to Sign In
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Role selector — only on signup */}
+                            {!isLogin && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRole('candidate')}
+                                        className={`flex flex-col items-center gap-2 py-4 px-3 rounded-2xl border-2 transition-all duration-200 ${role === 'candidate'
+                                            ? 'border-gold-500 bg-gold-50 text-sacred-dark shadow-sm'
+                                            : 'border-gray-200 bg-white/60 text-gray-400 hover:border-gold-300'}`}
+                                    >
+                                        <User className="h-6 w-6" />
+                                        <span className="text-xs font-semibold">I'm the Candidate</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRole('scout')}
+                                        className={`flex flex-col items-center gap-2 py-4 px-3 rounded-2xl border-2 transition-all duration-200 ${role === 'scout'
+                                            ? 'border-gold-500 bg-gold-50 text-sacred-dark shadow-sm'
+                                            : 'border-gray-200 bg-white/60 text-gray-400 hover:border-gold-300'}`}
+                                    >
+                                        <Users className="h-6 w-6" />
+                                        <span className="text-xs font-semibold">I'm a Parent</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Email Address"
+                                    required
+                                    className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
+                                />
+                            </div>
+
+                            {!isLogin && (
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="Phone Number"
+                                        required
+                                        className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Password"
+                                    required
+                                    className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-12 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors p-1"
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
+
+                            {isLogin && (
+                                <div className="flex justify-end mt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsForgotPassword(true);
+                                            setError(null);
+                                        }}
+                                        className="text-xs font-medium text-gold-600 hover:text-gold-800 transition-colors"
+                                    >
+                                        Forgot password?
+                                    </button>
+                                </div>
+                            )}
+
+                            {!isLogin && (
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Confirm Password"
+                                        required
+                                        className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-12 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors p-1"
+                                        title={showConfirmPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    </button>
+                                </div>
+                            )}
+
                             <button
-                                type="button"
-                                onClick={() => setRole('scout')}
-                                className={`flex flex-col items-center gap-2 py-4 px-3 rounded-2xl border-2 transition-all duration-200 ${role === 'scout'
-                                    ? 'border-gold-500 bg-gold-50 text-sacred-dark shadow-sm'
-                                    : 'border-gray-200 bg-white/60 text-gray-400 hover:border-gold-300'}`}
+                                type="submit"
+                                disabled={loading}
+                                className="mt-6 flex w-full items-center justify-center space-x-2 rounded-xl bg-sacred-dark py-4 font-medium text-sacred-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
                             >
-                                <Users className="h-6 w-6" />
-                                <span className="text-xs font-semibold">I'm a Parent</span>
+                                <span>{loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}</span>
+                                {!loading && <ArrowRight className="h-4 w-4" />}
                             </button>
-                        </div>
+
+                            <div className="mt-6 text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsLogin(!isLogin);
+                                        setError(null);
+                                        setRole('candidate');
+                                    }}
+                                    className="text-sm font-medium text-gold-700 hover:text-gold-900 transition-colors"
+                                >
+                                    {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                                </button>
+                            </div>
+                        </>
                     )}
-
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email Address"
-                            required
-                            className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
-                        />
-                    </div>
-
-                    {!isLogin && (
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="Phone Number"
-                                required
-                                className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
-                            />
-                        </div>
-                    )}
-
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Password"
-                            required
-                            className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
-                        />
-                    </div>
-
-                    {!isLogin && (
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="Confirm Password"
-                                required
-                                className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
-                            />
-                        </div>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="mt-6 flex w-full items-center justify-center space-x-2 rounded-xl bg-sacred-dark py-4 font-medium text-sacred-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
-                    >
-                        <span>{loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}</span>
-                        {!loading && <ArrowRight className="h-4 w-4" />}
-                    </button>
-
-                    <div className="mt-6 text-center">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsLogin(!isLogin);
-                                setError(null);
-                                setRole('candidate');
-                            }}
-                            className="text-sm font-medium text-gold-700 hover:text-gold-900 transition-colors"
-                        >
-                            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-                        </button>
-                    </div>
                 </form>
             </div>
 

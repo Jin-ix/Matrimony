@@ -139,23 +139,42 @@ export default function AdvancedFiltersModal({ onClose, initialFilters, onApplyF
                             <span className="text-gray-400 text-xs">to</span>
                             <span className="bg-gold-50 border border-gold-200 rounded-lg px-3 py-1">{filters.ageRange[1]} yrs</span>
                         </div>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs text-gray-400 mb-1 block">Min age</label>
-                                <input
-                                    type="range" min="18" max="60" value={filters.ageRange[0]}
-                                    onChange={e => set('ageRange', [Math.min(parseInt(e.target.value), filters.ageRange[1] - 1), filters.ageRange[1]])}
-                                    className="w-full accent-gold-600 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-400 mb-1 block">Max age</label>
-                                <input
-                                    type="range" min="18" max="60" value={filters.ageRange[1]}
-                                    onChange={e => set('ageRange', [filters.ageRange[0], Math.max(parseInt(e.target.value), filters.ageRange[0] + 1)])}
-                                    className="w-full accent-gold-600 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
-                                />
-                            </div>
+                        <div className="relative w-full h-10 flex items-center mt-6">
+                            {/* Track background */}
+                            <div className="absolute w-full h-1.5 bg-gray-200 rounded-full"></div>
+                            
+                            {/* Active track color */}
+                            <div 
+                                className="absolute h-1.5 bg-gold-500 rounded-full"
+                                style={{ 
+                                    left: `${((filters.ageRange[0] - 18) / (60 - 18)) * 100}%`,
+                                    right: `${100 - ((filters.ageRange[1] - 18) / (60 - 18)) * 100}%` 
+                                }}
+                            ></div>
+
+                            {/* Min Slider */}
+                            <input
+                                type="range" 
+                                min="18" max="60" 
+                                value={filters.ageRange[0]}
+                                onChange={e => {
+                                    const val = Math.min(parseInt(e.target.value), filters.ageRange[1] - 1);
+                                    set('ageRange', [val, filters.ageRange[1]]);
+                                }}
+                                className="absolute top-1/2 -translate-y-1/2 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold-600 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold-600 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:cursor-pointer z-20 focus:outline-none"
+                            />
+
+                            {/* Max Slider */}
+                            <input
+                                type="range" 
+                                min="18" max="60" 
+                                value={filters.ageRange[1]}
+                                onChange={e => {
+                                    const val = Math.max(parseInt(e.target.value), filters.ageRange[0] + 1);
+                                    set('ageRange', [filters.ageRange[0], val]);
+                                }}
+                                className="absolute top-1/2 -translate-y-1/2 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gold-600 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-gold-600 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:cursor-pointer z-30 focus:outline-none"
+                            />
                         </div>
                     </section>
 

@@ -70,28 +70,7 @@ export default function FilterControlBar({
                     </div>
                 </div>
 
-                {/* Right Side: Hard Boundaries Toggles */}
-                <div className="hidden lg:flex items-center space-x-6 pl-4 border-l border-gray-200">
-                    <label className="flex items-center space-x-3 cursor-pointer group">
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-sacred-dark">Orthodox Bridge</span>
-                        <div
-                            onClick={() => setOrthodoxBridge(!orthodoxBridge)}
-                            className={`flex h-5 w-9 items-center rounded-full p-1 transition-colors ${orthodoxBridge ? 'bg-indigo-500' : 'bg-gray-300'}`}
-                        >
-                            <div className={`h-3 w-3 rounded-full bg-white shadow-md transition-transform ${orthodoxBridge ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </div>
-                    </label>
 
-                    <label className="flex items-center space-x-3 cursor-pointer group">
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-sacred-dark">Strict Knanaya</span>
-                        <div
-                            onClick={() => setStrictKnanaya(!strictKnanaya)}
-                            className={`flex h-5 w-9 items-center rounded-full p-1 transition-colors ${strictKnanaya ? 'bg-gold-600' : 'bg-gray-300'}`}
-                        >
-                            <div className={`h-3 w-3 rounded-full bg-white shadow-md transition-transform ${strictKnanaya ? 'translate-x-4' : 'translate-x-0'}`} />
-                        </div>
-                    </label>
-                </div>
 
             </div>
         </div>

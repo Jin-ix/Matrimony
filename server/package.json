@@ -4,7 +4,7 @@
     "description": "Indian Catholic Matrimony Backend API",
     "type": "module",
     "scripts": {
-        "dev": "tsx watch src/index.ts",
+        "dev": "tsx src/index.ts",
         "build": "tsc",
         "start": "node dist/index.js",
         "db:generate": "prisma generate",
