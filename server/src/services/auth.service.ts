@@ -2,6 +2,7 @@ import prisma from '../config/database.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, TokenPayload } from '../utils/jwt.js';
 import { UserRole } from '@prisma/client';
+import { createError } from '../middleware/error.middleware.js';
 
 export interface AuthTokens {
     accessToken: string;
@@ -19,7 +20,7 @@ export async function register(
     });
 
     if (existingUser) {
-        throw Object.assign(new Error('User with this phone or email already exists'), { statusCode: 409 });
+        throw createError('User with this phone or email already exists', 409);
     }
 
     const passwordHash = await hashPassword(password);
@@ -61,19 +62,20 @@ export async function login(
     identifier: string,
     password: string
 ): Promise<{ user: { id: string; role: UserRole; phone?: string; email?: string }; tokens: AuthTokens }> {
+    const normalizedIdentifier = identifier.toLowerCase().trim();
     const user = await prisma.user.findFirst({
         where: {
-            OR: [{ phone: identifier }, { email: identifier }],
+            OR: [{ phone: normalizedIdentifier }, { email: normalizedIdentifier }],
         },
     });
 
     if (!user || !user.passwordHash) {
-        throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
+        throw createError('Invalid credentials', 401);
     }
 
     const isValid = await comparePassword(password, user.passwordHash);
     if (!isValid) {
-        throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
+        throw createError('Invalid credentials', 401);
     }
 
     const payload: TokenPayload = { userId: user.id, role: user.role };
@@ -99,7 +101,7 @@ export async function refreshTokens(token: string): Promise<AuthTokens> {
     });
 
     if (!user || user.refreshToken !== token) {
-        throw Object.assign(new Error('Invalid refresh token'), { statusCode: 401 });
+        throw createError('Invalid refresh token', 401);
     }
 
     const newPayload: TokenPayload = { userId: user.id, role: user.role };
@@ -129,12 +131,12 @@ export async function changePassword(
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.passwordHash) {
-        throw Object.assign(new Error('User not found'), { statusCode: 404 });
+        throw createError('User not found', 404);
     }
 
     const isValid = await comparePassword(currentPassword, user.passwordHash);
     if (!isValid) {
-        throw Object.assign(new Error('Current password is incorrect'), { statusCode: 400 });
+        throw createError('Current password is incorrect', 400);
     }
 
     const newHash = await hashPassword(newPassword);
