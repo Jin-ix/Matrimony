@@ -174,6 +174,12 @@ export async function updatePreferences(userId: string, data: {
     preferredDiet?: string;
     orthodoxBridgeRequired?: boolean;
     strictKnanayaRequired?: boolean;
+    weightReligion?: number;
+    weightPersonality?: number;
+    weightFinance?: number;
+    weightPhysical?: number;
+    weightFamily?: number;
+    weightExpectations?: number;
 }) {
     let prefs = await prisma.matchPreferences.findUnique({ where: { userId } });
 
@@ -193,6 +199,12 @@ export async function updatePreferences(userId: string, data: {
                 strictKnanayaRequired: data.strictKnanayaRequired ?? false,
                 preferredEducation: data.preferredEducation,
                 preferredDiet: data.preferredDiet,
+                weightReligion: data.weightReligion ?? 25,
+                weightPersonality: data.weightPersonality ?? 15,
+                weightFinance: data.weightFinance ?? 15,
+                weightPhysical: data.weightPhysical ?? 10,
+                weightFamily: data.weightFamily ?? 15,
+                weightExpectations: data.weightExpectations ?? 20,
             },
         });
     }

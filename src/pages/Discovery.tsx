@@ -9,6 +9,7 @@ import LandingAbout from '../components/onboarding/LandingAbout';
 import LandingHowItWorks from '../components/onboarding/LandingHowItWorks';
 import LandingServices from '../components/onboarding/LandingServices';
 import LandingCTA from '../components/onboarding/LandingCTA';
+import FloatingAIAssistant from '../components/ui/FloatingAIAssistant';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Sparkles, X } from 'lucide-react';
@@ -255,6 +256,9 @@ export default function Discovery() {
                     </motion.div>
                 )}
             </AnimatePresence>
+            
+            {/* AI Assistant */}
+            <FloatingAIAssistant />
         </div>
     );
 }

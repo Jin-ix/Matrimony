@@ -11,6 +11,7 @@ export interface MatchProfile {
     rite: string;
     image: string;
     compatibility: 'green' | 'yellow' | 'red';
+    matchPercentage?: number;
     dealbreaker?: string;
     scoutRecommended?: boolean;
     hobbies?: string[];
@@ -106,6 +107,16 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
                 >
                     <Heart className="h-4 w-4 text-red-500 fill-current" />
                     <span className="text-xs font-semibold uppercase tracking-wider text-sacred-dark">Aleyamma Recommended</span>
+                </div>
+            )}
+
+            {/* Match Percentage Badge */}
+            {profile.matchPercentage !== undefined && (
+                <div
+                    className="absolute top-4 right-4 z-10 flex items-center justify-center rounded-full bg-sacred-dark/90 backdrop-blur-md px-4 py-2 shadow-lg border border-gold-400"
+                    style={{ transform: 'translateZ(30px)' }}
+                >
+                    <span className="text-sm font-bold text-gold-400">{profile.matchPercentage}% Match</span>
                 </div>
             )}
 

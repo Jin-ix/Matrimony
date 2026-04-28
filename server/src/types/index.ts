@@ -56,6 +56,7 @@ export interface MatchProfileResponse {
     rite: string;
     image: string;
     compatibility: Compatibility;
+    matchPercentage?: number;
     dealbreaker?: string;
     scoutRecommended?: boolean;
     hobbies?: string[];

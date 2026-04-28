@@ -125,6 +125,7 @@ export async function getDiscoveryFeed(
             rite: RITE_DISPLAY[profile.rite] || profile.rite,
             image: profile.user.photos[0]?.url || '',
             compatibility: compat.score,
+            matchPercentage: compat.overallPercentage ?? 0,
             dealbreaker: compat.dealbreaker,
             scoutRecommended: profile.user.receivedInteractions.length > 0,
             hobbies: profile.hobbies,

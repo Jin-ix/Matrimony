@@ -41,3 +41,17 @@ export async function generateIcebreaker(req: Request, res: Response, next: Next
         next(error);
     }
 }
+
+export async function homepageChatAssistant(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { message } = req.body;
+        if (message === undefined) {
+             res.status(400).json({ error: 'message required' });
+             return;
+        }
+        const result = await aiService.processHomepageChat(req.user!.userId, message);
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+}

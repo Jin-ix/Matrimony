@@ -506,23 +506,24 @@ export default function ProfileView() {
                                     myProfile?.location || '',
                                     selectedProfile.location
                                 );
-                                const overallLabel = indivScore >= 85 ? 'Exceptional' : indivScore >= 70 ? 'Strong' : indivScore >= 55 ? 'Moderate' : 'Developing';
-                                const overallColor = indivScore >= 85 ? 'bg-green-100 text-green-800 border-green-200' : indivScore >= 70 ? 'bg-gold-100 text-gold-800 border-gold-200' : 'bg-orange-100 text-orange-800 border-orange-200';
+                                const finalIndivScore = selectedProfile.matchPercentage ?? indivScore;
+                                const overallLabel = finalIndivScore >= 85 ? 'Exceptional' : finalIndivScore >= 70 ? 'Strong' : finalIndivScore >= 55 ? 'Moderate' : 'Developing';
+                                const overallColor = finalIndivScore >= 85 ? 'bg-green-100 text-green-800 border-green-200' : finalIndivScore >= 70 ? 'bg-gold-100 text-gold-800 border-gold-200' : 'bg-orange-100 text-orange-800 border-orange-200';
                                 return (
                                     <div className="space-y-5 relative z-10">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-sm font-semibold text-sacred-dark/80 uppercase tracking-wider">Overall Match</span>
                                             <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide border ${overallColor}`}>
-                                                {indivScore}% {overallLabel}
+                                                {finalIndivScore}% {overallLabel}
                                             </span>
                                         </div>
                                         <div>
                                             <div className="flex justify-between text-sm font-medium text-sacred-dark/80 mb-2">
-                                                <span>Individual Compatibility</span>
-                                                <span className="font-bold text-sacred-dark">{indivScore}%</span>
+                                                <span>Weighted Algorithm Match</span>
+                                                <span className="font-bold text-sacred-dark">{finalIndivScore}%</span>
                                             </div>
                                             <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                                <div className="bg-gradient-to-r from-gold-500 to-gold-300 h-2.5 rounded-full transition-all duration-700" style={{ width: `${indivScore}%` }}></div>
+                                                <div className="bg-gradient-to-r from-gold-500 to-gold-300 h-2.5 rounded-full transition-all duration-700" style={{ width: `${finalIndivScore}%` }}></div>
                                             </div>
                                         </div>
                                         <div>

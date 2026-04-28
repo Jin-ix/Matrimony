@@ -69,6 +69,7 @@ export default function Settings() {
     // profile comes from the backend API (mirrors the Supabase Profile table)
     const [userData, setUserData] = useState<any>(null);     // { id, email, phone, role, isVerified, profile, photos }
     const [profile, setProfile] = useState<any>({});
+    const [preferences, setPreferences] = useState<any>({});
     const [loading, setLoading] = useState(true);
 
     const showToast = useCallback((type: 'success' | 'error', message: string) => {
@@ -107,9 +108,10 @@ export default function Settings() {
 
             try {
                 // Primary: Supabase REST API (HTTPS — always works, bypasses TCP pooler)
-                const [profileRes, userRes] = await Promise.all([
+                const [profileRes, userRes, prefsRes] = await Promise.all([
                     supabase.from('Profile').select('*').eq('userId', userId).maybeSingle(),
                     supabase.from('User').select('id,email,phone,role,isVerified,createdAt,ghostMode').eq('id', userId).maybeSingle(),
+                    supabase.from('MatchPreferences').select('*').eq('userId', userId).maybeSingle(),
                 ]);
 
                 if (profileRes.data) {
@@ -127,6 +129,12 @@ export default function Settings() {
                     if (stored) try { setUserData(JSON.parse(stored)); } catch {}
                 }
 
+                if (prefsRes.data) {
+                    setPreferences(prefsRes.data);
+                } else if (prefsRes.error) {
+                    console.warn('Supabase MatchPreferences fetch error:', prefsRes.error.message);
+                }
+
                 // If no profile found via Supabase, try backend API
                 if (!profileRes.data) {
                     console.log('No profile in Supabase, trying backend API…');
@@ -136,6 +144,7 @@ export default function Settings() {
                             const d = await res.json();
                             setUserData(d);
                             if (d.profile) setProfile(d.profile);
+                            if (d.matchPreferences) setPreferences(d.matchPreferences);
                         }
                     } catch (be) {
                         console.warn('Backend API also unavailable:', be);
@@ -204,8 +213,40 @@ export default function Settings() {
                 }
             }
 
+            // Save preferences if on preferences tab, or just save them anyway
+            if (activeTab === 'preferences') {
+                const prefsRow = {
+                    id: preferences.id || crypto.randomUUID(),
+                    userId,
+                    minAge: preferences.minAge ?? 21,
+                    maxAge: preferences.maxAge ?? 40,
+                    orthodoxBridgeRequired: preferences.orthodoxBridgeRequired ?? false,
+                    strictKnanayaRequired: preferences.strictKnanayaRequired ?? false,
+                    weightReligion: preferences.weightReligion ?? 25,
+                    weightPersonality: preferences.weightPersonality ?? 15,
+                    weightFinance: preferences.weightFinance ?? 15,
+                    weightPhysical: preferences.weightPhysical ?? 10,
+                    weightFamily: preferences.weightFamily ?? 15,
+                    weightExpectations: preferences.weightExpectations ?? 20,
+                    updatedAt: new Date().toISOString(),
+                };
+                
+                const { error: prefError } = await supabase
+                    .from('MatchPreferences')
+                    .upsert(prefsRow, { onConflict: 'userId' });
+                
+                if (prefError) {
+                    console.error('Supabase prefs save error:', prefError);
+                    await fetch(`${API}/api/profile/preferences`, {
+                        method: 'PUT',
+                        headers: apiHeaders(userId),
+                        body: JSON.stringify(prefsRow),
+                    }).catch(() => null);
+                }
+            }
+
             setSaveSuccess(true);
-            showToast('success', 'Profile saved successfully!');
+            showToast('success', 'Changes saved successfully!');
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (e) {
             console.error('Save exception:', e);
@@ -313,7 +354,7 @@ export default function Settings() {
                                 transition={{ duration: 0.25 }} className="relative z-10 w-full"
                             >
                                 {activeTab === 'profile'       && <ProfileForm profile={profile} setProfile={setProfile} loading={loading} userId={getUserId()} />}
-                                {activeTab === 'preferences'   && <PreferencesSettings />}
+                                {activeTab === 'preferences'   && <PreferencesSettings preferences={preferences} setPreferences={setPreferences} />}
                                 {activeTab === 'privacy'       && <PrivacySettings />}
                                 {activeTab === 'notifications' && <NotificationSettings />}
                             </motion.div>
@@ -707,7 +748,8 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
 
 // ─── Preferences ──────────────────────────────────────────────────────────────
 
-function PreferencesSettings() {
+function PreferencesSettings({ preferences, setPreferences }: { preferences: any, setPreferences: any }) {
+    const up = (field: string, val: any) => setPreferences((p: any) => ({ ...p, [field]: val }));
     return (
         <div className="space-y-8">
             <SectionHeader title="Matching Criteria" desc="Refine what you are looking for in a prospective partner." />
@@ -715,23 +757,63 @@ function PreferencesSettings() {
                 <div className="space-y-2">
                     <label className={labelCls}>Preferred Age Range</label>
                     <div className="flex items-center space-x-4">
-                        <input type="number" defaultValue="26" className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
+                        <input type="number" value={preferences.minAge ?? 21} onChange={e => up('minAge', parseInt(e.target.value))} className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
                         <span className="text-gray-400">to</span>
-                        <input type="number" defaultValue="32" className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
+                        <input type="number" value={preferences.maxAge ?? 40} onChange={e => up('maxAge', parseInt(e.target.value))} className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
                     </div>
                 </div>
                 {[
-                    { label: 'Orthodox Bridge (Traditional Values)', desc: 'Only match with users prioritizing traditional church teachings.' },
-                    { label: 'Strict Endogamy (Knanaya)', desc: 'Constrain matches strictly within the Knanaya Catholic community.' },
+                    { label: 'Orthodox Bridge (Traditional Values)', field: 'orthodoxBridgeRequired', desc: 'Only match with users prioritizing traditional church teachings.' },
+                    { label: 'Strict Endogamy (Knanaya)', field: 'strictKnanayaRequired', desc: 'Constrain matches strictly within the Knanaya Catholic community.' },
                 ].map(item => (
                     <label key={item.label} className="flex items-start space-x-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
-                        <input type="checkbox" className="mt-1 w-4 h-4 accent-gold-600" />
+                        <input type="checkbox" checked={preferences[item.field] ?? false} onChange={e => up(item.field, e.target.checked)} className="mt-1 w-4 h-4 accent-gold-600" />
                         <div>
                             <span className="block font-medium text-sacred-dark text-[15px]">{item.label}</span>
                             <span className="text-[13px] text-gray-500">{item.desc}</span>
                         </div>
                     </label>
                 ))}
+            </div>
+
+            <div className="mt-12">
+                <SectionHeader title="Compatibility Weights" desc="Slide to prioritize what matters most to you in a match. These weights personalize your match percentage." />
+                <div className="space-y-6 max-w-2xl mt-8">
+                    {[
+                        { key: 'weightReligion', label: 'Religion & Faith', desc: 'Importance of sharing similar faith practices and church rites.', default: 25 },
+                        { key: 'weightExpectations', label: 'Expectations & Preferences', desc: 'Importance of aligning on age limits, community constraints, and marriage expectations.', default: 20 },
+                        { key: 'weightPersonality', label: 'Personality & Lifestyle', desc: 'Importance of shared hobbies, dietary choices, and habits.', default: 15 },
+                        { key: 'weightFinance', label: 'Financial Stability', desc: 'Importance of occupation, income, and career alignment.', default: 15 },
+                        { key: 'weightFamily', label: 'Family & Culture', desc: 'Importance of family values, cultural background, and upbringing.', default: 15 },
+                        { key: 'weightPhysical', label: 'Physical Attributes', desc: 'Importance of physical factors like age distance and appearance.', default: 10 },
+                    ].map(pillar => {
+                        const val = preferences[pillar.key] ?? pillar.default;
+                        // Display it as a normalized 1-10 scale for UI simplicity, but store internally as 0-100 to allow granularity.
+                        // Actually, the prompt says "1 to 10 scale" was suggested. Let's make the slider 0 to 10.
+                        const sliderVal = Math.round(val / 10);
+                        return (
+                            <div key={pillar.key} className="p-4 border border-gray-100 rounded-xl bg-gray-50/30">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 className="font-medium text-sacred-dark">{pillar.label}</h3>
+                                        <p className="text-[12px] text-gray-500">{pillar.desc}</p>
+                                    </div>
+                                    <span className="font-bold text-gold-600 w-8 text-right">{sliderVal}</span>
+                                </div>
+                                <input 
+                                    type="range" min="0" max="10" step="1" 
+                                    value={sliderVal} 
+                                    onChange={e => up(pillar.key, parseInt(e.target.value) * 10)} 
+                                    className="w-full accent-gold-500" 
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider">
+                                    <span>Not Important</span>
+                                    <span>Very Important</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

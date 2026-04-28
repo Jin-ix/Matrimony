@@ -285,3 +285,35 @@ export async function getOnboardingSummary(userId: string) {
         answer: r.answer,
     }));
 }
+
+export async function processHomepageChat(userId: string, userMessage: string): Promise<{ response: string; action?: string; suggestedLinks?: { label: string; url: string }[] }> {
+    const profile = await prisma.profile.findUnique({ where: { userId } });
+    
+    // Check if the user is asking for matches
+    if (userMessage.toLowerCase().includes('match') || userMessage.toLowerCase().includes('suggest')) {
+        return {
+            response: "I'd be happy to show you some matches! I can filter by your preferences or show you new profiles that joined recently.",
+            suggestedLinks: [
+                { label: 'View All Matches', url: '/discovery' },
+                { label: 'My Matches', url: '/messages' }
+            ]
+        };
+    }
+
+    // Check if profile is incomplete
+    if (profile && profile.profileComplete !== undefined && profile.profileComplete < 100) {
+        if (userMessage.toLowerCase().includes('profile') || userMessage.toLowerCase().includes('complete') || userMessage.toLowerCase().includes('missing')) {
+            return {
+                response: "Your profile is almost complete! Filling in more details like your hobbies or bio helps us find better matches for you.",
+                suggestedLinks: [
+                    { label: 'Complete Profile', url: '/profile/' + userId }
+                ]
+            };
+        }
+    }
+
+    // Generic helpful response
+    return {
+        response: "Hello! I'm your Sacred Guide. I can help you find matches, complete your profile, or navigate the platform. What can I assist you with today?"
+    };
+}

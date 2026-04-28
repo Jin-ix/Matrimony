@@ -189,7 +189,19 @@ function calculateExpectationsScore(candidate: Profile, prefs?: any): { score: n
 export function calculateCompatibility(
     userProfile: Profile & { user?: { ghostMode: boolean } },
     candidateProfile: Profile,
-    userPrefs?: { minAge: number; maxAge: number; orthodoxBridgeRequired: boolean; strictKnanayaRequired: boolean; preferredRites: Rite[] } | null
+    userPrefs?: { 
+        minAge: number; 
+        maxAge: number; 
+        orthodoxBridgeRequired: boolean; 
+        strictKnanayaRequired: boolean; 
+        preferredRites: Rite[];
+        weightReligion?: number;
+        weightPersonality?: number;
+        weightFinance?: number;
+        weightPhysical?: number;
+        weightFamily?: number;
+        weightExpectations?: number;
+    } | null
 ): CompatibilityResult {
     // Hard Dealbreaker inverse check
     if (candidateProfile.strictKnanaya && userProfile.rite !== 'KNANAYA_CATHOLIC') {
@@ -213,21 +225,28 @@ export function calculateCompatibility(
     const expScore = expResult.score;
     let dealbreaker = expResult.dealbreaker;
 
-    // Weights
-    const wRel = 0.25;
-    const wExp = 0.20;
-    const wFam = 0.15;
-    const wPer = 0.15;
-    const wFin = 0.15;
-    const wPhy = 0.10;
+    // Weights from preferences (fallback to defaults if undefined)
+    const wRel = userPrefs?.weightReligion ?? 25;
+    const wPer = userPrefs?.weightPersonality ?? 15;
+    const wFin = userPrefs?.weightFinance ?? 15;
+    const wPhy = userPrefs?.weightPhysical ?? 10;
+    const wFam = userPrefs?.weightFamily ?? 15;
+    const wExp = userPrefs?.weightExpectations ?? 20;
+
+    let totalWeight = wRel + wPer + wFin + wPhy + wFam + wExp;
+    
+    // Fallback if all weights are 0
+    if (totalWeight <= 0) {
+        totalWeight = 100;
+    }
 
     let overallPercentage = 
-        (relScore * wRel) + 
-        (expScore * wExp) + 
-        (famScore * wFam) + 
-        (perScore * wPer) + 
-        (finScore * wFin) + 
-        (phyScore * wPhy);
+        (relScore * (wRel / totalWeight)) + 
+        (perScore * (wPer / totalWeight)) + 
+        (finScore * (wFin / totalWeight)) + 
+        (phyScore * (wPhy / totalWeight)) + 
+        (famScore * (wFam / totalWeight)) + 
+        (expScore * (wExp / totalWeight));
 
     overallPercentage = Math.round(overallPercentage);
 
