@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ShieldCheck, MapPin, Loader2, ChevronRight } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function MatchBrowser({ onClose }: { onClose: () => void }) {
     const [matches, setMatches] = useState<any[]>([]);

@@ -10,7 +10,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 type SettingsTab = 'profile' | 'preferences' | 'privacy' | 'notifications';
 
-const API = 'http://localhost:3001';
+const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const RITE_DISPLAY: Record<string, string> = {
     SYRO_MALABAR: 'Syro-Malabar',

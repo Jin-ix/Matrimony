@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // --- Typewriter Hook ---
 function useTypewriter(text: string, speed = 20, enabled = true) {

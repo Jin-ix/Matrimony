@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { ShieldCheck, ArrowRight, Mail, Lock, Phone, Users, User, Link2, X, CheckCircle2, Loader2, Eye, EyeOff } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function Auth() {
     const [isLogin, setIsLogin] = useState(true);
