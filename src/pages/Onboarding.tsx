@@ -16,8 +16,8 @@ type OnboardingState = 'verification' | 'basicInfo' | 'chat' | 'upload' | 'trans
 export default function Onboarding() {
     const [step, setStep] = useState<OnboardingState>('verification');
     const [role] = useState<'candidate' | 'scout'>('candidate');
-    const [phone, setPhone] = useState<string>('');
-    const [chatAnswers, setChatAnswers] = useState<Record<string, any>>({});
+    const [_phone, setPhone] = useState<string>('');
+    const [_chatAnswers, _setChatAnswers] = useState<Record<string, any>>({});
     const navigate = useNavigate();
 
 

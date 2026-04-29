@@ -13,10 +13,10 @@ interface FilterControlBarProps {
 }
 
 export default function FilterControlBar({
-    orthodoxBridge,
-    setOrthodoxBridge,
-    strictKnanaya,
-    setStrictKnanaya,
+    orthodoxBridge: _orthodoxBridge,
+    setOrthodoxBridge: _setOrthodoxBridge,
+    strictKnanaya: _strictKnanaya,
+    setStrictKnanaya: _setStrictKnanaya,
     activeRite,
     setActiveRite,
     searchQuery,

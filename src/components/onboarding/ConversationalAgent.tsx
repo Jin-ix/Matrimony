@@ -53,7 +53,7 @@ interface Message {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ConversationalAgent({
-    role,
+    role: _role,
     onComplete,
     onMoodChange,
 }: {

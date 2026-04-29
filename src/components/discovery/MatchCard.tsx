@@ -151,14 +151,7 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
                     </div>
                 )}
                 
-                {/* Diaspora Bridge Cultural Indicator */}
-                {profile.culturalDistance !== undefined && (
-                    <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-900/40 backdrop-blur-md border border-blue-400/30 p-2 overflow-hidden relative">
-                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent" />
-                         <span className="text-xs font-medium text-blue-100 uppercase tracking-widest relative z-10">Diaspora Bridge</span>
-                         <span className="text-sm font-bold text-white relative z-10">{Math.max(0, 100 - profile.culturalDistance)}% Cultural Match</span>
-                    </div>
-                )}
+
             </motion.div>
         </motion.div>
     );

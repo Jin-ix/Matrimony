@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, X, MessageCircle } from 'lucide-react';
+import { Send, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API = 'http://localhost:3001/api';

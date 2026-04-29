@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck, Heart, BookOpen, Briefcase, Home, Sparkles } from 'lucide-react';
+import { MapPin, ShieldCheck, Heart, BookOpen, Home, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import RadialChart from '../ui/RadialChart';
 

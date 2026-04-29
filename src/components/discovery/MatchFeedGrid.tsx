@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import MatchCard, { type MatchProfile } from './MatchCard';
-import { X, ShieldAlert, Heart, Send, CheckCircle2, Video, Upload, Sparkles, MessageCircle } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { computeIndividualCompatibility, computeFamilyValuesScore, generateAIInsight } from '../../utils/scoring';
+
 import type { AdvancedFilters } from './AdvancedFiltersModal';
 
 export const MOCK_PROFILES: MatchProfile[] = [

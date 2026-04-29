@@ -7,7 +7,7 @@ import type { MatchProfile } from '../components/discovery/MatchCard';
 import { supabase } from '../lib/supabase';
 
 export default function ProfileView() {
-    const { id } = useParams<{ id: string }>();
+    const { id: _id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
 

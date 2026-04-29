@@ -91,7 +91,7 @@ export default function KitchenTable() {
         ? 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80'
         : 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
 
-    const [chatMode, setChatMode] = useState<'internal' | 'external'>('internal');
+    const [chatMode, _setChatMode] = useState<'internal' | 'external'>('internal');
     const [profileName, setProfileName] = useState('');
     const [profileImage, setProfileImage] = useState(defaultImageFallback);
     const [typingUser, setTypingUser] = useState<string | null>(null);
@@ -133,7 +133,6 @@ export default function KitchenTable() {
         const bootstrap = async () => {
             setLoading(true);
             try {
-                let currentTableId = '';
                 try {
                     // Try to use the backend (API)
                     const tableRes = await fetch(`${API}/kitchen-table/${effectiveMatchId}`, {
@@ -142,7 +141,6 @@ export default function KitchenTable() {
                     if (!tableRes.ok) throw new Error('Backend failed');
                     const table: KitchenTableInfo = await tableRes.json();
                     setTableInfo(table);
-                    currentTableId = table.id;
                     setTableId(table.id);
 
                     // Fetch persisted messages
@@ -198,7 +196,6 @@ export default function KitchenTable() {
                             members: targetTable.members || []
                         };
                         setTableInfo(safeTableInfo);
-                        currentTableId = targetTable.id;
                         setTableId(targetTable.id);
 
                         // Fetch fallback messages

@@ -60,7 +60,7 @@ function Toast({ type, message }: { type: 'success' | 'error'; message: string }
 
 export default function Settings() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [_searchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);

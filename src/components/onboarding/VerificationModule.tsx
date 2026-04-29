@@ -53,7 +53,7 @@ export default function VerificationModule({ onVerified }: VerificationModulePro
         const left = window.screenX + (window.outerWidth - width) / 2;
         const top = window.screenY + (window.outerHeight - height) / 2;
         
-        const popup = window.open(popupUrl, 'linkedin', `width=${width},height=${height},left=${left},top=${top}`);
+        window.open(popupUrl, 'linkedin', `width=${width},height=${height},left=${left},top=${top}`);
 
         const listener = (event: MessageEvent) => {
             if (event.data?.type === 'LINKEDIN_SUCCESS') {

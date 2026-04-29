@@ -23,7 +23,7 @@ interface PromisePillar {
     title: string;
     subtitle: string;
     body: string[];
-    icon: React.ElementType;
+    icon: any;
     accent: string;
     scripture?: string;
     scriptureRef?: string;
