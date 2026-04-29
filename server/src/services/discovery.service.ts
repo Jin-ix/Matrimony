@@ -114,7 +114,7 @@ export async function getDiscoveryFeed(
                 profile,
                 currentUser.matchPreferences
             )
-            : { score: 'green' as const, dealbreaker: undefined, culturalDistance: undefined };
+            : { score: 'green' as const, dealbreaker: undefined, culturalDistance: undefined, overallPercentage: undefined };
 
         return {
             id: profile.userId,
