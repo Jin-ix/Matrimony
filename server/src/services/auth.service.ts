@@ -15,8 +15,16 @@ export async function register(
     role: UserRole,
     email?: string
 ): Promise<{ user: { id: string; phone: string; role: UserRole }; tokens: AuthTokens }> {
+    const normalizedPhone = phone.trim();
+    const normalizedEmail = email ? email.trim() : undefined;
+
     const existingUser = await prisma.user.findFirst({
-        where: { OR: [{ phone }, ...(email ? [{ email }] : [])] },
+        where: { 
+            OR: [
+                { phone: { equals: normalizedPhone, mode: 'insensitive' } },
+                ...(normalizedEmail ? [{ email: { equals: normalizedEmail, mode: 'insensitive' as const } }] : [])
+            ] 
+        },
     });
 
     if (existingUser) {
@@ -27,8 +35,8 @@ export async function register(
 
     const user = await prisma.user.create({
         data: {
-            phone,
-            email,
+            phone: normalizedPhone,
+            email: normalizedEmail,
             passwordHash,
             role,
             notificationPrefs: {
@@ -62,10 +70,13 @@ export async function login(
     identifier: string,
     password: string
 ): Promise<{ user: { id: string; role: UserRole; phone?: string; email?: string }; tokens: AuthTokens }> {
-    const normalizedIdentifier = identifier.toLowerCase().trim();
+    const normalizedIdentifier = identifier.trim();
     const user = await prisma.user.findFirst({
         where: {
-            OR: [{ phone: normalizedIdentifier }, { email: normalizedIdentifier }],
+            OR: [
+                { phone: { equals: normalizedIdentifier, mode: 'insensitive' } },
+                { email: { equals: normalizedIdentifier, mode: 'insensitive' } }
+            ],
         },
     });
 

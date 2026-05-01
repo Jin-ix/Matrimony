@@ -327,10 +327,10 @@ export default function Auth() {
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                                 <input
-                                    type="email"
+                                    type={isLogin ? "text" : "email"}
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Email Address"
+                                    placeholder={isLogin ? "Email or Phone Number" : "Email Address"}
                                     required
                                     className="w-full rounded-xl border border-gold-200 bg-white/50 py-3 pl-10 pr-4 text-sacred-dark outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-all font-sans"
                                 />
