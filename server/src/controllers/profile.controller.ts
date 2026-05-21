@@ -90,3 +90,14 @@ export async function toggleGhostMode(req: Request, res: Response, next: NextFun
         next(error);
     }
 }
+
+export async function togglePhotoVisibility(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { enabled } = req.body;
+        await profileService.togglePhotoVisibility(req.user!.userId, enabled);
+        res.json({ success: true, photoVisibilityOptIn: enabled });
+    } catch (error) {
+        next(error);
+    }
+}
+

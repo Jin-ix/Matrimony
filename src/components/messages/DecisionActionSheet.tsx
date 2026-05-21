@@ -37,9 +37,21 @@ export default function DecisionActionSheet({ onClose, onAction }: { onClose: ()
                         </button>
                         <button
                             onClick={() => onAction('close')}
-                            className="w-full rounded-2xl bg-red-50 py-4 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                            className="w-full rounded-2xl border border-rose-200 bg-rose-50/50 py-4 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100"
                         >
-                            Respectfully Close
+                            Respectfully Close Connection
+                        </button>
+                        <button
+                            onClick={() => onAction('block')}
+                            className="w-full rounded-2xl bg-red-600 py-4 text-sm font-medium text-white transition-colors hover:bg-red-700 shadow-sm"
+                        >
+                            Block Profile
+                        </button>
+                        <button
+                            onClick={() => onAction('report')}
+                            className="w-full rounded-2xl border border-red-200 bg-red-50 py-4 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+                        >
+                            Report User
                         </button>
                     </div>
 

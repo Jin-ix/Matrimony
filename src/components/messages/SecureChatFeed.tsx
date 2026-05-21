@@ -17,11 +17,15 @@ export default function SecureChatFeed({
     matchUser,
     chatId,
     initialMessages = [],
+    selectedIcebreaker = '',
+    onClearIcebreaker,
 }: {
     currentUser: { id: string; name: string };
     matchUser: { id: string; name: string; avatar: string };
     chatId: string;
     initialMessages?: Message[];
+    selectedIcebreaker?: string;
+    onClearIcebreaker?: () => void;
 }) {
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
@@ -30,12 +34,20 @@ export default function SecureChatFeed({
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
+        if (selectedIcebreaker) {
+            setInput(selectedIcebreaker);
+            onClearIcebreaker?.();
+        }
+    }, [selectedIcebreaker, onClearIcebreaker]);
+
+    useEffect(() => {
         setMessages(initialMessages);
     }, [initialMessages]);
 
     // Socket.io for backend
     useEffect(() => {
-        const socket = io('http://localhost:3001/chat', { 
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+        const socket = io(`${SOCKET_URL}/chat`, { 
             transports: ['websocket'],
             reconnectionAttempts: 3,
             timeout: 5000

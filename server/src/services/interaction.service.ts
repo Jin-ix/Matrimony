@@ -3,6 +3,20 @@ import { createNotification } from './notification.service.js';
 import { pushNotificationToUser } from '../socket/notification.socket.js';
 
 export async function expressInterest(fromUserId: string, toUserId: string, message?: string) {
+    // Check if blocked
+    const block = await prisma.block.findFirst({
+        where: {
+            OR: [
+                { blockerId: fromUserId, blockedId: toUserId },
+                { blockerId: toUserId, blockedId: fromUserId }
+            ]
+        }
+    });
+
+    if (block) {
+        throw Object.assign(new Error('This action is not allowed due to user blocking settings.'), { statusCode: 403 });
+    }
+
     // Check for existing interaction
     const existing = await prisma.interest.findUnique({
         where: { fromUserId_toUserId: { fromUserId, toUserId } },
@@ -124,8 +138,26 @@ export async function recommendProfile(
 }
 
 export async function getReceivedInterests(userId: string) {
+    const blocks = await prisma.block.findMany({
+        where: {
+            OR: [
+                { blockerId: userId },
+                { blockedId: userId }
+            ]
+        },
+        select: {
+            blockerId: true,
+            blockedId: true
+        }
+    });
+    const blockedUserIds = blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId);
+
     return prisma.interest.findMany({
-        where: { toUserId: userId, type: 'interest' },
+        where: { 
+            toUserId: userId, 
+            type: 'interest',
+            fromUserId: { notIn: blockedUserIds }
+        },
         include: {
             fromUser: {
                 include: {
@@ -139,8 +171,26 @@ export async function getReceivedInterests(userId: string) {
 }
 
 export async function getSentInterests(userId: string) {
+    const blocks = await prisma.block.findMany({
+        where: {
+            OR: [
+                { blockerId: userId },
+                { blockedId: userId }
+            ]
+        },
+        select: {
+            blockerId: true,
+            blockedId: true
+        }
+    });
+    const blockedUserIds = blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId);
+
     return prisma.interest.findMany({
-        where: { fromUserId: userId, type: 'interest' },
+        where: { 
+            fromUserId: userId, 
+            type: 'interest',
+            toUserId: { notIn: blockedUserIds }
+        },
         include: {
             toUser: {
                 include: {

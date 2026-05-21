@@ -158,6 +158,7 @@ export default function MatchFeedGrid({
     const [loading, setLoading] = useState(true);
     const [myProfile, setMyProfile] = useState<any>(null);
     const navigate = useNavigate();
+    const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
     useEffect(() => {
         const fetchProfiles = async () => {
@@ -168,7 +169,10 @@ export default function MatchFeedGrid({
                 // ── Step 1: Fetch my own profile (gender + scoring data) ──────
                 let myProfileData: any = null;
                 if (userId) {
-                    const { data: mp } = await supabase.from('Profile').select('*').eq('userId', userId).single();
+                    const [profileRes] = await Promise.all([
+                        supabase.from('Profile').select('*').eq('userId', userId).maybeSingle()
+                    ]);
+                    const mp = profileRes.data;
                     myProfileData = mp;
                     setMyProfile(mp);
                     if (!userGender && mp?.gender) {
@@ -197,9 +201,16 @@ export default function MatchFeedGrid({
                     if (advancedFilters.smoke !== 'any') params.set('smoke', advancedFilters.smoke === 'yes' ? 'true' : 'false');
                     if (advancedFilters.drink !== 'any') params.set('drink', advancedFilters.drink === 'yes' ? 'true' : 'false');
 
-                    const res = await fetch(`http://localhost:3001/api/discovery/feed?${params.toString()}`, {
+                    const token = localStorage.getItem('token');
+                    const headers: Record<string, string> = {
+                        'x-user-id': userId ?? '',
+                        'x-user-gender': userGender ?? ''
+                    };
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                    const res = await fetch(`${API}/discovery/feed?${params.toString()}`, {
                         signal: AbortSignal.timeout(4000),
-                        headers: { 'x-user-id': userId ?? '', 'x-user-gender': userGender ?? '' },
+                        headers,
                     });
                     if (res.ok) {
                         const resultData = await res.json();
@@ -359,8 +370,12 @@ export default function MatchFeedGrid({
             try {
                 const uid = localStorage.getItem('userId') || '';
                 if (!uid) return;
-                const res = await fetch('http://localhost:3001/api/interactions/received', {
-                    headers: { 'x-user-id': uid },
+                const token = localStorage.getItem('token');
+                const headers: Record<string, string> = { 'x-user-id': uid };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const res = await fetch(`${API}/interactions/received`, {
+                    headers,
                 }).catch(() => null);
                 if (!res || !res.ok) return;
                 const data = await res.json();

@@ -60,4 +60,6 @@ export interface MatchProfileResponse {
     dealbreaker?: string;
     scoutRecommended?: boolean;
     hobbies?: string[];
+    photoVisibilityOptIn?: boolean;
+    isVerified?: boolean;
 }

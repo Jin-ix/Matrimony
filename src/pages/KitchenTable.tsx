@@ -898,7 +898,7 @@ export default function KitchenTable() {
                             </button>
                         </div>
                         <div className="flex-1 overflow-hidden relative bg-sacred-offwhite">
-                            <SharedProfileView user={profileData} loading={profileLoading} />
+                            <SharedProfileView user={profileData} loading={profileLoading} candidateId={effectiveMatchId} />
                         </div>
                     </motion.div>
                 )}

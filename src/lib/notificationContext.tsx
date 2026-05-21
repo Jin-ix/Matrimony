@@ -9,6 +9,9 @@ import {
 } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { supabase } from './supabase';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Heart, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export type NotificationType =
     | 'new_interest'
@@ -45,8 +48,51 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [loading, setLoading] = useState(false);
+    const [liveToasts, setLiveToasts] = useState<AppNotification[]>([]);
     const socketRef = useRef<Socket | null>(null);
     const userId = localStorage.getItem('userId');
+    const navigate = useNavigate();
+
+    const playChime = useCallback(() => {
+        try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContextClass) return;
+            const ctx = new AudioContextClass();
+            
+            const playTone = (freq: number, start: number, duration: number) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.frequency.setValueAtTime(freq, start);
+                
+                gain.gain.setValueAtTime(0.15, start);
+                gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+                
+                osc.start(start);
+                osc.stop(start + duration);
+            };
+            
+            const now = ctx.currentTime;
+            playTone(523.25, now, 0.4);
+            playTone(659.25, now + 0.12, 0.55);
+        } catch (e) {
+            console.error('Audio chime failed:', e);
+        }
+    }, []);
+
+    const showToast = useCallback((notif: AppNotification) => {
+        setLiveToasts(prev => [...prev, notif]);
+        
+        if (notif.type === 'mutual_match' || notif.type === 'new_interest') {
+            playChime();
+        }
+        
+        setTimeout(() => {
+            setLiveToasts(prev => prev.filter(t => t.id !== notif.id));
+        }, 6000);
+    }, [playChime]);
 
     // ── Merge helper: insert without duplicates, newest first ───────────────
     const mergeNotifications = useCallback((fresh: AppNotification[]) => {
@@ -223,6 +269,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             socket.on('notification:new', (notif: AppNotification) => {
                 console.log('[Socket] Received notification:', notif);
                 mergeNotifications([notif]);
+                showToast(notif);
             });
 
             socket.on('connect_error', () => {
@@ -289,6 +336,64 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             value={{ notifications, unreadCount, loading, markAllRead, markOneRead, dismissNotification }}
         >
             {children}
+            
+            {/* Global Floating Toasts */}
+            <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-3 pointer-events-none w-full max-w-sm">
+                <AnimatePresence>
+                    {liveToasts.map(toast => (
+                        <motion.div
+                            key={toast.id}
+                            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className={`pointer-events-auto flex items-start gap-4 rounded-2xl shadow-2xl border p-4 max-w-sm w-[calc(100vw-3rem)] ${
+                                toast.type === 'mutual_match'
+                                    ? 'bg-gradient-to-br from-amber-900 to-stone-900 border-gold-500/40 text-white'
+                                    : 'bg-white border-gray-200 text-sacred-dark'
+                            }`}
+                        >
+                            <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                toast.type === 'mutual_match' ? 'bg-gold-500/20' : 'bg-rose-50'
+                            }`}>
+                                {toast.type === 'mutual_match'
+                                    ? <Sparkles className="w-5 h-5 text-gold-400 fill-current" />
+                                    : <Heart className="w-5 h-5 text-rose-500 fill-current" />
+                                }
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                                <p className={`font-semibold text-sm ${
+                                    toast.type === 'mutual_match' ? 'text-gold-300' : 'text-sacred-dark'
+                                }`}>{toast.title}</p>
+                                <p className={`text-xs mt-0.5 leading-relaxed ${
+                                    toast.type === 'mutual_match' ? 'text-amber-200/80' : 'text-gray-500'
+                                }`}>{toast.description}</p>
+                                
+                                {toast.type === 'mutual_match' && toast.relatedId && (
+                                    <button
+                                        onClick={() => {
+                                            setLiveToasts(prev => prev.filter(t => t.id !== toast.id));
+                                            navigate(`/messages/${toast.relatedId}`);
+                                        }}
+                                        className="mt-2 text-xs font-semibold text-gold-400 hover:text-gold-300 underline underline-offset-2 transition-colors"
+                                    >
+                                        Start chatting →
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <button
+                                onClick={() => setLiveToasts(prev => prev.filter(t => t.id !== toast.id))}
+                                className={`shrink-0 p-1 rounded-full hover:bg-black/10 transition-colors ${
+                                    toast.type === 'mutual_match' ? 'text-amber-200/60 hover:text-white' : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+            </div>
         </NotificationContext.Provider>
     );
 }

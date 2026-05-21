@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, ArrowLeft, Loader2, Link, Sparkles, CheckCircle2, X } from 'lucide-react';
+import { Heart, MessageCircle, ArrowLeft, Loader2, Link, Sparkles, CheckCircle2, X, MoreVertical } from 'lucide-react';
 import TopNavigation from '../components/discovery/TopNavigation';
-import { supabase } from '../lib/supabase';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProfileSummary {
     id: string;
@@ -13,6 +11,8 @@ interface ProfileSummary {
     location?: string;
     rite?: string;
     age?: number;
+    photoVisibilityOptIn?: boolean;
+    isVerified?: boolean;
 }
 
 interface MatchItem {
@@ -78,209 +78,179 @@ export default function Connections() {
     const [shortlisted, setShortlisted] = useState<SentItem[]>([]);
     const [received, setReceived] = useState<ReceivedItem[]>([]);
 
+    const [selectedUser, setSelectedUser] = useState<ProfileSummary | null>(null);
+    const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+    const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+    const [showReportForm, setShowReportForm] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+
     const showToast = useCallback((type: 'success' | 'error' | 'match', message: string) => {
         setToast({ type, message });
         setTimeout(() => setToast(null), 4000);
     }, []);
 
-    // ── Helper: fetch a user's display info from Supabase ─────────────────────
-    const fetchUserInfo = useCallback(async (uid: string): Promise<ProfileSummary> => {
-        const [{ data: profile }, { data: photo }] = await Promise.all([
-            supabase.from('Profile').select('firstName,location,rite,age').eq('userId', uid).single(),
-            supabase.from('Photo').select('url').eq('userId', uid).eq('isPrimary', true).single(),
-        ]);
-        return {
-            id: uid,
-            name: profile?.firstName || 'Unknown',
-            location: profile?.location || undefined,
-            rite: RITE_DISPLAY[profile?.rite || ''] || profile?.rite || undefined,
-            age: profile?.age || undefined,
-            avatar: photo?.url || (profile?.rite === 'male'
-                ? 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80'
-                : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80'),
-        };
-    }, []);
-
-    // ── Main fetch: Supabase direct (no backend required) ─────────────────────
+    // ── Main fetch: Backend REST API ─────────────────────────────────────────
     const fetchAll = useCallback(async () => {
         setLoading(true);
         const userId = localStorage.getItem('userId');
         const userRole = localStorage.getItem('userRole');
+        const token = localStorage.getItem('token');
         
         if (!userId) { navigate('/auth'); return; }
-        
-        if (userRole === 'scout') {
-            navigate('/kitchen-table');
-            return;
-        }
+        if (userRole === 'scout') { navigate('/kitchen-table'); return; }
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (userId) headers['x-user-id'] = userId;
+        if (userRole) headers['x-user-role'] = userRole;
+
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
         try {
-            // 1) Interests sent BY me
-            const { data: sentRaw } = await supabase
-                .from('Interest')
-                .select('id,toUserId,createdAt')
-                .eq('fromUserId', userId)
-                .eq('type', 'interest')
-                .order('createdAt', { ascending: false });
-
-            // 2) Interests sent TO me
-            const { data: receivedRaw } = await supabase
-                .from('Interest')
-                .select('id,fromUserId,createdAt')
-                .eq('toUserId', userId)
-                .eq('type', 'interest')
-                .order('createdAt', { ascending: false });
-
-            // 3) Conversations (mutual matches)
-            const { data: convParticipants } = await supabase
-                .from('ConversationParticipant')
-                .select('conversationId,conversation:conversationId(id,createdAt)')
-                .eq('userId', userId);
-
-            const convIds = (convParticipants ?? []).map((cp: any) => cp.conversationId);
-
-            // Get the OTHER participant for reach conversation
-            const { data: otherParticipants } = convIds.length > 0 ? await supabase
-                .from('ConversationParticipant')
-                .select('conversationId,userId')
-                .in('conversationId', convIds)
-                .neq('userId', userId) : { data: [] };
-
-            // Get last messages
-            const { data: lastMessages } = convIds.length > 0 ? await supabase
-                .from('Message')
-                .select('conversationId,text,createdAt')
-                .in('conversationId', convIds)
-                .order('createdAt', { ascending: false }) : { data: [] };
-
-            const lastMsgMap: Record<string, { text: string; createdAt: string }> = {};
-            (lastMessages ?? []).forEach((m: any) => {
-                if (!lastMsgMap[m.conversationId]) lastMsgMap[m.conversationId] = { text: m.text, createdAt: m.createdAt };
-            });
-
-            // Build a map: otherUserId → conversationId (for mutual match detection)
-            const otherToConvMap: Record<string, string> = {};
-            (otherParticipants ?? []).forEach((op: any) => {
-                otherToConvMap[op.userId] = op.conversationId;
-            });
-
-            // Build sets for quick lookup
-            const sentToIds = new Set((sentRaw ?? []).map((r: any) => r.toUserId));
-            const receivedFromIds = new Set((receivedRaw ?? []).map((r: any) => r.fromUserId));
-            const mutualUserIds = new Set([...sentToIds].filter(id => receivedFromIds.has(id)));
-
-            // 4) Fetch user info in parallel for all unique user IDs we need
-            const allUids = new Set([
-                ...(sentRaw ?? []).map((r: any) => r.toUserId),
-                ...(receivedRaw ?? []).map((r: any) => r.fromUserId),
-                ...(otherParticipants ?? []).map((op: any) => op.userId),
+            const [convRes, sentRes, receivedRes] = await Promise.all([
+                fetch(`${API}/conversations`, { headers }),
+                fetch(`${API}/interactions/sent`, { headers }),
+                fetch(`${API}/interactions/received`, { headers }),
             ]);
-            const userInfoMap: Record<string, ProfileSummary> = {};
-            await Promise.all([...allUids].map(async uid => {
-                userInfoMap[uid] = await fetchUserInfo(uid);
+
+            if (!convRes.ok || !sentRes.ok || !receivedRes.ok) {
+                throw new Error('Failed to fetch connections from backend');
+            }
+
+            const [convsData, sentData, receivedData] = await Promise.all([
+                convRes.json(),
+                sentRes.json(),
+                receivedRes.json(),
+            ]);
+
+            const mutualUserIds = new Set<string>();
+            const otherToConvMap: Record<string, string> = {};
+
+            convsData.forEach((conv: any) => {
+                if (conv.matchUser?.id) {
+                    mutualUserIds.add(conv.matchUser.id);
+                    otherToConvMap[conv.matchUser.id] = conv.id;
+                }
+            });
+
+            const getAvatar = (photoUrl?: string, gender?: string) => {
+                if (photoUrl) return photoUrl;
+                return gender === 'female'
+                    ? 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80'
+                    : 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
+            };
+
+            // 1) Build MATCHES
+            const builtMatches: MatchItem[] = convsData.map((conv: any) => ({
+                conversationId: conv.id,
+                matchUser: {
+                    id: conv.matchUser?.id || '',
+                    name: conv.matchUser?.name || 'Unknown',
+                    avatar: getAvatar(conv.matchUser?.avatar, conv.matchUser?.gender),
+                    location: conv.matchUser?.location || undefined,
+                    rite: RITE_DISPLAY[conv.matchUser?.rite || ''] || conv.matchUser?.rite || undefined,
+                    age: conv.matchUser?.age || undefined,
+                    photoVisibilityOptIn: conv.matchUser?.photoVisibilityOptIn ?? false,
+                    isVerified: conv.matchUser?.isVerified ?? false,
+                },
+                lastMessage: conv.lastMessage?.text,
+                lastMessageTime: conv.lastMessage?.timestamp,
             }));
 
-            // 5) Build MATCHES (conversations)
-            const builtMatches: MatchItem[] = (otherParticipants ?? []).map((op: any) => ({
-                conversationId: op.conversationId,
-                matchUser: userInfoMap[op.userId] || { id: op.userId, name: 'Unknown', avatar: '' },
-                lastMessage: lastMsgMap[op.conversationId]?.text,
-                lastMessageTime: lastMsgMap[op.conversationId]?.createdAt,
-            }));
+            // 2) Build RECEIVED
+            const builtReceived: ReceivedItem[] = receivedData.map((r: any) => {
+                const sender = r.fromUser;
+                const profile = sender?.profile;
+                const photo = sender?.photos?.[0];
+                const isMutual = mutualUserIds.has(r.fromUserId);
 
-            // 6) Build RECEIVED (people who liked me)
-            const builtReceived: ReceivedItem[] = (receivedRaw ?? []).map((r: any) => ({
-                interestId: r.id,
-                userId: r.fromUserId,
-                user: userInfoMap[r.fromUserId] || { id: r.fromUserId, name: 'Unknown', avatar: '' },
-                createdAt: r.createdAt,
-                isMutual: mutualUserIds.has(r.fromUserId),
-                conversationId: otherToConvMap[r.fromUserId],
-            }));
-
-            // 7) Build SHORTLISTED (interests I sent that haven't mutually matched yet)
-            const builtSent: SentItem[] = (sentRaw ?? [])
-                .filter((r: any) => !mutualUserIds.has(r.toUserId))   // exclude those already in matches
-                .map((r: any) => ({
+                return {
                     interestId: r.id,
-                    userId: r.toUserId,
-                    user: userInfoMap[r.toUserId] || { id: r.toUserId, name: 'Unknown', avatar: '' },
+                    userId: r.fromUserId,
+                    user: {
+                        id: r.fromUserId,
+                        name: profile ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Unknown',
+                        location: profile?.location || undefined,
+                        rite: RITE_DISPLAY[profile?.rite || ''] || profile?.rite || undefined,
+                        age: profile?.age || undefined,
+                        avatar: getAvatar(photo?.url, profile?.gender),
+                        photoVisibilityOptIn: sender?.photoVisibilityOptIn ?? false,
+                        isVerified: sender?.isVerified ?? false,
+                    },
                     createdAt: r.createdAt,
-                    isMutual: false,
-                    conversationId: undefined,
-                }));
+                    isMutual,
+                    conversationId: otherToConvMap[r.fromUserId],
+                };
+            });
+
+            // 3) Build SHORTLISTED
+            const builtSent: SentItem[] = sentData
+                .filter((r: any) => !mutualUserIds.has(r.toUserId))
+                .map((r: any) => {
+                    const recipient = r.toUser;
+                    const profile = recipient?.profile;
+                    const photo = recipient?.photos?.[0];
+
+                    return {
+                        interestId: r.id,
+                        userId: r.toUserId,
+                        user: {
+                            id: r.toUserId,
+                            name: profile ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Unknown',
+                            location: profile?.location || undefined,
+                            rite: RITE_DISPLAY[profile?.rite || ''] || profile?.rite || undefined,
+                            age: profile?.age || undefined,
+                            avatar: getAvatar(photo?.url, profile?.gender),
+                            photoVisibilityOptIn: recipient?.photoVisibilityOptIn ?? false,
+                            isVerified: recipient?.isVerified ?? false,
+                        },
+                        createdAt: r.createdAt,
+                        isMutual: false,
+                        conversationId: undefined,
+                    };
+                });
 
             setMatches(builtMatches);
             setReceived(builtReceived);
             setShortlisted(builtSent);
         } catch (err) {
             console.error('[Connections] fetch failed', err);
+            showToast('error', 'Failed to retrieve connections from server.');
         } finally {
             setLoading(false);
         }
-    }, [navigate, fetchUserInfo]);
+    }, [navigate, showToast]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
     // ── Like back action ──────────────────────────────────────────────────────
     const handleLikeBack = async (item: ReceivedItem) => {
         const userId = localStorage.getItem('userId');
+        const token = localStorage.getItem('token');
         if (!userId) return;
 
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        headers['x-user-id'] = userId;
+
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
         try {
-            // Try backend first
-            const res = await fetch('http://localhost:3001/api/interactions/interest', {
+            const res = await fetch(`${API}/interactions/interest`, {
                 method: 'POST',
-                signal: AbortSignal.timeout(4000),
-                headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+                headers,
                 body: JSON.stringify({ toUserId: item.userId }),
-            }).catch(() => null);
+            });
 
-            let conversationId: string | undefined;
+            if (!res.ok) throw new Error('Like back request failed');
 
-            if (res?.ok) {
-                const json = await res.json().catch(() => null);
-                conversationId = json?.conversationId;
-            } else {
-                // Helper for ID generation
-                const genId = () => typeof crypto.randomUUID === 'function' 
-                    ? crypto.randomUUID() 
-                    : Math.random().toString(36).substring(2) + Date.now().toString(36);
-
-                // Supabase direct fallback
-                const { error: insertError } = await supabase.from('Interest').insert([{
-                    id: genId(),
-                    fromUserId: userId,
-                    toUserId: item.userId,
-                    type: 'interest',
-                    createdAt: new Date().toISOString(),
-                }]);
-                if (insertError && !insertError.message.includes('duplicate')) {
-                    throw insertError;
-                }
-
-                // Create conversation for mutual match
-                const newConvId = genId();
-                const { data: conv, error: convError } = await supabase
-                    .from('Conversation')
-                    .insert([{ 
-                        id: newConvId,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    }])
-                    .select('id')
-                    .single();
-
-                if (convError) throw convError;
-
-                if (conv?.id) {
-                    await supabase.from('ConversationParticipant').insert([
-                        { id: genId(), conversationId: conv.id, userId, joinedAt: new Date().toISOString() },
-                        { id: genId(), conversationId: conv.id, userId: item.userId, joinedAt: new Date().toISOString() },
-                    ]);
-                    conversationId = conv.id;
-                }
-            }
+            const json = await res.json();
+            const conversationId = json?.conversationId;
 
             showToast('match', `It's a Match with ${item.user.name}! 💍`);
 
@@ -314,6 +284,90 @@ export default function Connections() {
         const h = Math.floor(m / 60);
         if (h < 24) return `${h}h ago`;
         return `${Math.floor(h / 24)}d ago`;
+    };
+
+    // ── Block / Report API Handlers ───────────────────────────────────────────
+    const handleBlockConfirm = async () => {
+        if (!selectedUser) return;
+        setActionLoading(true);
+        const userId = localStorage.getItem('userId');
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (userId) headers['x-user-id'] = userId;
+
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+        try {
+            const res = await fetch(`${API}/users/block`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ blockedId: selectedUser.id }),
+            });
+
+            if (res.ok) {
+                showToast('success', `${selectedUser.name} has been blocked.`);
+                // Remove from local lists
+                setMatches(prev => prev.filter(m => m.matchUser.id !== selectedUser.id));
+                setShortlisted(prev => prev.filter(s => s.userId !== selectedUser.id));
+                setReceived(prev => prev.filter(r => r.userId !== selectedUser.id));
+                
+                setShowBlockConfirm(false);
+                setShowOptionsSheet(false);
+                setSelectedUser(null);
+            } else {
+                showToast('error', 'Failed to block user. Please try again.');
+            }
+        } catch (e) {
+            console.error('Error blocking user:', e);
+            showToast('error', 'Something went wrong.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReportSubmit = async () => {
+        if (!selectedUser || !reportReason.trim()) return;
+        setActionLoading(true);
+        const userId = localStorage.getItem('userId');
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (userId) headers['x-user-id'] = userId;
+
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+        try {
+            const res = await fetch(`${API}/users/report`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ reportedId: selectedUser.id, reason: reportReason }),
+            });
+
+            if (res.ok) {
+                showToast('success', `${selectedUser.name} has been reported and blocked.`);
+                // Remove from local lists
+                setMatches(prev => prev.filter(m => m.matchUser.id !== selectedUser.id));
+                setShortlisted(prev => prev.filter(s => s.userId !== selectedUser.id));
+                setReceived(prev => prev.filter(r => r.userId !== selectedUser.id));
+
+                setShowReportForm(false);
+                setShowOptionsSheet(false);
+                setReportReason('');
+                setSelectedUser(null);
+            } else {
+                showToast('error', 'Failed to report user. Please try again.');
+            }
+        } catch (e) {
+            console.error('Error reporting user:', e);
+            showToast('error', 'Something went wrong.');
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const tabs = [
@@ -357,7 +411,7 @@ export default function Connections() {
                             {tab.count > 0 && (
                                 <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
                                     activeTab === tab.id ? 'bg-gold-200 text-gold-800' : 'bg-gray-100 text-gray-500'
-                                }`}>
+                                }}`}>
                                     {tab.count}
                                 </span>
                             )}
@@ -398,12 +452,31 @@ export default function Connections() {
                                                     <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h3 className="font-serif text-lg font-medium text-sacred-dark truncate group-hover:text-gold-700 transition-colors">{m.matchUser.name}</h3>
+                                                    <h3 className="font-serif text-lg font-medium text-sacred-dark truncate group-hover:text-gold-700 transition-colors flex items-center gap-1.5">
+                                                        {m.matchUser.name}
+                                                        {m.matchUser.isVerified && (
+                                                            <span className="inline-flex items-center text-gold-500 shrink-0" title="Verified Catholic">
+                                                                <CheckCircle2 className="w-4 h-4 fill-gold-50" />
+                                                            </span>
+                                                        )}
+                                                    </h3>
                                                     <p className="text-xs text-gray-500 mt-0.5 truncate">{m.matchUser.location || 'Location Unknown'}{m.matchUser.rite ? ` · ${m.matchUser.rite}` : ''}</p>
                                                     <p className="text-sm text-gray-400 mt-1.5 truncate">{m.lastMessage || 'Say hi to start the conversation!'}</p>
                                                 </div>
-                                                <div className="shrink-0 w-10 h-10 ml-4 rounded-full bg-gold-50 flex items-center justify-center group-hover:bg-gold-500 transition-colors">
-                                                    <MessageCircle className="w-5 h-5 text-gold-600 group-hover:text-white transition-colors" />
+                                                <div className="flex items-center space-x-2 shrink-0 ml-4">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedUser(m.matchUser);
+                                                            setShowOptionsSheet(true);
+                                                        }}
+                                                        className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+                                                    >
+                                                        <MoreVertical className="w-5 h-5" />
+                                                    </button>
+                                                    <div className="w-10 h-10 rounded-full bg-gold-50 flex items-center justify-center group-hover:bg-gold-500 transition-colors">
+                                                        <MessageCircle className="w-5 h-5 text-gold-600 group-hover:text-white transition-colors" />
+                                                    </div>
                                                 </div>
                                             </motion.div>
                                         ))}
@@ -415,17 +488,38 @@ export default function Connections() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                         {shortlisted.length === 0 ? (
                                             <EmptyState icon={<Heart className="h-10 w-10 text-gray-300" />} title="No Shortlisted Profiles" desc="Profiles you express interest in will appear here until they match back." />
-                                        ) : shortlisted.map(s => (
-                                            <motion.div key={s.interestId} whileHover={{ y: -3 }} className="bg-white rounded-[24px] border border-pearl-200 p-5 flex items-center shadow-sm transition-all">
-                                                <img src={s.user.avatar} alt={s.user.name} className="w-14 h-14 rounded-full object-cover shrink-0 mr-4 border border-gray-100" />
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-serif text-lg font-medium text-sacred-dark truncate">{s.user.name}</h3>
-                                                    <p className="text-xs text-gray-500 mt-0.5">{s.user.location || 'Location Unknown'}</p>
-                                                    <p className="text-[10px] text-gray-400 mt-1">{timeAgo(s.createdAt)}</p>
-                                                </div>
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 shrink-0 ml-3">Pending</span>
-                                            </motion.div>
-                                        ))}
+                                        ) : shortlisted.map(s => {
+                                            const showActual = s.user.photoVisibilityOptIn || s.isMutual;
+                                            return (
+                                                <motion.div key={s.interestId} whileHover={{ y: -3 }} className="bg-white rounded-[24px] border border-pearl-200 p-5 flex items-center shadow-sm transition-all relative group">
+                                                    <img src={s.user.avatar} alt={showActual ? s.user.name : "Candidate"} className={`w-14 h-14 rounded-full object-cover shrink-0 mr-4 border border-gray-100 ${showActual ? '' : 'blur-md'}`} />
+                                                    <div className="flex-1 min-w-0 mr-2">
+                                                        <h3 className="font-serif text-lg font-medium text-sacred-dark truncate flex items-center gap-1.5">
+                                                            {showActual ? s.user.name : '••••••'}
+                                                            {showActual && s.user.isVerified && (
+                                                                <span className="inline-flex items-center text-gold-500 shrink-0" title="Verified Catholic">
+                                                                    <CheckCircle2 className="w-4 h-4 fill-gold-50" />
+                                                                </span>
+                                                            )}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-500 mt-0.5">{s.user.location || 'Location Unknown'}{s.user.rite ? ` · ${s.user.rite}` : ''}</p>
+                                                        <p className="text-[10px] text-gray-400 mt-1">{timeAgo(s.createdAt)}</p>
+                                                    </div>
+                                                    <div className="flex items-center space-x-1.5 shrink-0">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedUser(s.user);
+                                                                setShowOptionsSheet(true);
+                                                            }}
+                                                            className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+                                                        >
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">Pending</span>
+                                                    </div>
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
                                 )}
 
@@ -441,6 +535,10 @@ export default function Connections() {
                                                 onLikeBack={handleLikeBack}
                                                 onChat={id => navigate(`/messages/${id}`)}
                                                 timeAgo={timeAgo}
+                                                onOptions={(user) => {
+                                                    setSelectedUser(user);
+                                                    setShowOptionsSheet(true);
+                                                }}
                                             />
                                         ))}
                                     </div>
@@ -450,16 +548,190 @@ export default function Connections() {
                     )}
                 </div>
             </main>
+
+            {/* Options Sheet for Connections */}
+            <AnimatePresence>
+                {showOptionsSheet && selectedUser && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[150] flex items-end justify-center bg-black/40 backdrop-blur-sm p-4 sm:items-center"
+                        onClick={() => setShowOptionsSheet(false)}
+                    >
+                        <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="w-full max-w-sm overflow-hidden rounded-[2rem] bg-white shadow-2xl z-[150] pt-2"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-300 sm:hidden"></div>
+                            <div className="p-6">
+                                <h3 className="mb-6 text-center font-serif text-xl text-sacred-dark">Options for {selectedUser.name}</h3>
+
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowBlockConfirm(true);
+                                            setShowOptionsSheet(false);
+                                        }}
+                                        className="w-full rounded-2xl bg-red-600 py-4 text-sm font-semibold text-white transition-colors hover:bg-red-700 shadow-sm"
+                                    >
+                                        Block Profile
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowReportForm(true);
+                                            setShowOptionsSheet(false);
+                                        }}
+                                        className="w-full rounded-2xl border border-red-200 bg-red-50 py-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+                                    >
+                                        Report User
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowOptionsSheet(false)}
+                                    className="mt-6 w-full text-center text-sm font-medium text-gray-500 hover:text-gray-800"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Block Confirmation Modal */}
+            <AnimatePresence>
+                {showBlockConfirm && selectedUser && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                        onClick={() => setShowBlockConfirm(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white p-6 shadow-2xl z-[200] border border-red-100"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="mb-3 font-serif text-xl text-sacred-dark">Block {selectedUser.name}?</h3>
+                            <p className="text-sm text-gray-500 font-sans leading-relaxed mb-6">
+                                Are you sure you want to block {selectedUser.name}? This will remove them from all your connections (likes, matches) and prevent you both from ever finding each other again. This action is permanent.
+                            </p>
+
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => setShowBlockConfirm(false)}
+                                    disabled={actionLoading}
+                                    className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleBlockConfirm}
+                                    disabled={actionLoading}
+                                    className="flex-1 rounded-2xl bg-red-600 py-3 text-sm font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {actionLoading ? 'Blocking...' : 'Yes, Block Profile'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Report Form Modal */}
+            <AnimatePresence>
+                {showReportForm && selectedUser && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                        onClick={() => setShowReportForm(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white p-6 shadow-2xl z-[200] border border-red-100"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="mb-2 font-serif text-xl text-sacred-dark">Report {selectedUser.name}</h3>
+                            <p className="text-xs text-gray-500 font-sans leading-relaxed mb-4">
+                                Tell us why you are reporting this user. They will also be automatically blocked for your safety.
+                            </p>
+
+                            <div className="space-y-2.5 mb-6">
+                                {[
+                                    'Inappropriate messages or harassment',
+                                    'Fake account / Scammer / Fraud',
+                                    'Commercial use / Solicitation',
+                                    'Inappropriate photos',
+                                    'Other behavior violating community guidelines'
+                                ].map((reason) => (
+                                    <button
+                                        key={reason}
+                                        onClick={() => setReportReason(reason)}
+                                        className={`w-full text-left px-4 py-3 rounded-xl border text-xs font-medium transition-all ${
+                                            reportReason === reason
+                                                ? 'border-red-400 bg-red-50 text-red-700'
+                                                : 'border-gray-200 hover:border-gray-300 text-gray-700 bg-white'
+                                        }`}
+                                    >
+                                        {reason}
+                                    </button>
+                                ))}
+
+                                <textarea
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    placeholder="Please provide more details (optional)..."
+                                    className="w-full h-24 p-3 border border-gray-200 rounded-xl text-xs font-sans focus:border-red-400 focus:outline-none resize-none"
+                                />
+                            </div>
+
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={() => {
+                                        setShowReportForm(false);
+                                        setReportReason('');
+                                    }}
+                                    disabled={actionLoading}
+                                    className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-600 transition-all hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleReportSubmit}
+                                    disabled={actionLoading || !reportReason.trim()}
+                                    className="flex-1 rounded-2xl bg-red-600 py-3 text-sm font-semibold text-white transition-all hover:bg-red-700 disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {actionLoading ? 'Submitting...' : 'Submit & Block'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
 // ─── ReceivedCard ─────────────────────────────────────────────────────────────
-function ReceivedCard({ item, onLikeBack, onChat, timeAgo }: {
+function ReceivedCard({ item, onLikeBack, onChat, timeAgo, onOptions }: {
     item: ReceivedItem;
     onLikeBack: (item: ReceivedItem) => void;
     onChat: (conversationId: string) => void;
     timeAgo: (d: string) => string;
+    onOptions: (user: ProfileSummary) => void;
 }) {
     const [liking, setLiking] = useState(false);
 
@@ -468,6 +740,8 @@ function ReceivedCard({ item, onLikeBack, onChat, timeAgo }: {
         await onLikeBack(item);
         setLiking(false);
     };
+
+    const showActual = item.isMutual || item.user.photoVisibilityOptIn;
 
     return (
         <motion.div
@@ -480,17 +754,32 @@ function ReceivedCard({ item, onLikeBack, onChat, timeAgo }: {
         >
             <div className="flex items-center">
                 <div className="relative mr-4 shrink-0">
-                    <img src={item.user.avatar} alt={item.user.name} className="w-14 h-14 rounded-full object-cover border-2 border-rose-100" />
+                    <img src={item.user.avatar} alt={showActual ? item.user.name : 'Candidate'} className={`w-14 h-14 rounded-full object-cover border-2 border-rose-100 ${!showActual ? 'blur-md' : ''}`} />
                     {item.isMutual && (
                         <div className="absolute -top-1 -right-1 w-5 h-5 bg-gold-500 rounded-full flex items-center justify-center border-2 border-white">
                             <Sparkles className="w-2.5 h-2.5 text-white fill-white" />
                         </div>
                     )}
                 </div>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-serif text-lg font-medium text-sacred-dark truncate">{item.user.name}</h3>
-                        {item.user.age && <span className="text-sm text-gray-400">{item.user.age}</span>}
+                <div className="flex-1 min-w-0 mr-1">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <h3 className="font-serif text-lg font-medium text-sacred-dark truncate flex items-center gap-1.5">
+                                {showActual ? item.user.name : '••••••'}
+                                {showActual && item.user.isVerified && (
+                                    <span className="inline-flex items-center text-gold-500 shrink-0" title="Verified Catholic">
+                                        <CheckCircle2 className="w-4 h-4 fill-gold-50" />
+                                    </span>
+                                )}
+                            </h3>
+                            {showActual && item.user.age && <span className="text-sm text-gray-400">{item.user.age}</span>}
+                        </div>
+                        <button
+                            onClick={() => onOptions(item.user)}
+                            className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors shrink-0"
+                        >
+                            <MoreVertical className="w-4 h-4" />
+                        </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{item.user.location || 'Location Unknown'}{item.user.rite ? ` · ${item.user.rite}` : ''}</p>
                     <p className="text-[10px] text-gray-400 mt-1">{timeAgo(item.createdAt)}</p>

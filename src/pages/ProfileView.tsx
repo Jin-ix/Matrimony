@@ -15,10 +15,72 @@ export default function ProfileView() {
     // so we don't have to fetch them again immediately.
     const selectedProfile = location.state?.profile as MatchProfile | undefined;
     const myProfile = location.state?.myProfile as any | undefined;
+    
+    const [isMatched, setIsMatched] = useState(false);
+    const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+    useEffect(() => {
+        const checkMatchStatus = async () => {
+            try {
+                const userId = localStorage.getItem('userId');
+                if (!userId || !selectedProfile?.id) return;
+                
+                // Fetch conversations where the current user is a participant
+                const { data: myConversations } = await supabase
+                    .from('ConversationParticipant')
+                    .select('conversationId')
+                    .eq('userId', userId);
+                
+                if (myConversations && myConversations.length > 0) {
+                    const convIds = myConversations.map(c => c.conversationId);
+                    
+                    // Check if the selected profile is also in any of these conversations
+                    const { data: matchConv } = await supabase
+                        .from('ConversationParticipant')
+                        .select('conversationId')
+                        .in('conversationId', convIds)
+                        .eq('userId', selectedProfile.id)
+                        .limit(1);
+                    
+                    if (matchConv && matchConv.length > 0) {
+                        setIsMatched(true);
+                    }
+                }
+            } catch (err) {
+                console.error('Error checking match status:', err);
+            }
+        };
+        checkMatchStatus();
+    }, [selectedProfile?.id]);
 
     const [isExpressingInterest, setIsExpressingInterest] = useState(false);
     const [hasExpressedInterest, setHasExpressedInterest] = useState(false);
     const [mutualMatchData, setMutualMatchData] = useState<{ name: string; conversationId: string } | null>(null);
+    const [reviewText, setReviewText] = useState<string | null>(null);
+    const [isReviewLoading, setIsReviewLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchReview = async () => {
+            if (!selectedProfile?.id) return;
+            setIsReviewLoading(true);
+            try {
+                const token = localStorage.getItem('token');
+                const headers: Record<string, string> = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                
+                const res = await fetch(`${API}/discovery/compatibility-review/${selectedProfile.id}`, { headers });
+                if (res.ok) {
+                    const data = await res.json();
+                    setReviewText(data.review);
+                }
+            } catch (err) {
+                console.error('Error fetching compatibility review:', err);
+            } finally {
+                setIsReviewLoading(false);
+            }
+        };
+        fetchReview();
+    }, [selectedProfile?.id]);
     const [isRecommending, setIsRecommending] = useState(false);
     const [hasRecommended, setHasRecommended] = useState(false);
     const [isPassing, setIsPassing] = useState(false);
@@ -40,7 +102,7 @@ export default function ProfileView() {
             const userId = localStorage.getItem('userId') || '';
             let backendSucceeded = false;
             
-            const res = await fetch('http://localhost:3001/api/interactions/interest', {
+            const res = await fetch(`${API}/interactions/interest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
                 body: JSON.stringify({ toUserId: selectedProfile.id })
@@ -94,7 +156,7 @@ export default function ProfileView() {
             const userId = localStorage.getItem('userId') || '';
             let backendSucceeded = false;
             
-            const res = await fetch('http://localhost:3001/api/interactions/recommend', {
+            const res = await fetch(`${API}/interactions/recommend`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
                 body: JSON.stringify({ toUserId: selectedProfile.id, message: 'Recommended for you' })
@@ -140,7 +202,7 @@ export default function ProfileView() {
             const userId = localStorage.getItem('userId') || '';
             let backendSucceeded = false;
             
-            const res = await fetch('http://localhost:3001/api/interactions/pass', {
+            const res = await fetch(`${API}/interactions/pass`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
                 body: JSON.stringify({ toUserId: selectedProfile.id })
@@ -392,14 +454,27 @@ export default function ProfileView() {
                     <motion.img
                         layoutId={`image-${selectedProfile.id}`}
                         src={selectedProfile.image}
-                        className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                        className={`h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${!isMatched ? 'blur-xl' : ''}`}
                         alt={selectedProfile.name}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10 pointer-events-none opacity-90 transition-opacity duration-700 group-hover:opacity-100" />
 
                     <div className="absolute bottom-8 left-8 right-8 pointer-events-none z-20">
                         <motion.div layoutId={`info-${selectedProfile.id}`}>
-                            <h2 className="font-serif text-5xl lg:text-6xl text-white drop-shadow-xl tracking-tight leading-tight">{selectedProfile.name}, <span className="font-light text-white/90">{selectedProfile.age}</span></h2>
+                            <h2 className="font-serif text-5xl lg:text-6xl text-white drop-shadow-xl tracking-tight leading-tight flex items-center gap-3">
+                                {isMatched ? selectedProfile.name : '••••••'}, {selectedProfile.age}
+                                {selectedProfile.isVerified && (
+                                    <span className="inline-flex items-center text-gold-500 shrink-0 drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]" title="Verified Catholic">
+                                        <CheckCircle2 className="w-8 h-8 fill-gold-50" />
+                                    </span>
+                                )}
+                            </h2>
+                            <p className="mt-2 text-xl font-medium text-gold-300">
+                                {selectedProfile.rite}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-300">
+                                {selectedProfile.culturalDistance ? `${selectedProfile.culturalDistance} km away` : `${(selectedProfile.id.charCodeAt(0) % 20) + 5} km away`}
+                            </p>
                         </motion.div>
                         <div className="mt-4 flex items-center space-x-2">
                             <div className="inline-flex items-center space-x-2 rounded-full bg-white/20 px-4 py-1.5 backdrop-blur-md border border-white/30 text-white shadow-sm">
@@ -412,7 +487,7 @@ export default function ProfileView() {
 
                 {/* Right Column: Detailed Bio */}
                 <div className="flex flex-col md:w-1/2 bg-[#FAFAF9] relative flex-1 md:h-full overflow-hidden w-full">
-                    <div className="p-6 lg:px-12 lg:py-16 overflow-y-auto flex-1 space-y-8 scrollbar-hide">
+                    <div className="p-6 lg:px-12 lg:py-16 overflow-y-auto flex-1 space-y-8 scrollbar-hide relative">
                         <section className="bg-white rounded-3xl p-8 shadow-sm border border-pearl-200 transition-all hover:shadow-md">
                             <h3 className="font-serif text-2xl text-sacred-dark mb-4 flex items-center">
                                 <span className="w-10 h-[1.5px] bg-gold-400 mr-4"></span>
@@ -538,6 +613,30 @@ export default function ProfileView() {
                                     </div>
                                 );
                             })()}
+                        </section>
+
+                        {/* Sacred Guide Compatibility Review */}
+                        <section className="bg-gradient-to-br from-amber-50/75 via-white to-amber-50/20 rounded-3xl p-8 border border-gold-300 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <Sparkles className="w-16 h-16 text-gold-600" />
+                            </div>
+                            <h3 className="font-serif text-2xl text-sacred-dark mb-4 flex items-center relative z-10">
+                                <Sparkles className="w-5 h-5 text-gold-600 mr-3 animate-pulse" />
+                                Sacred Guide Compatibility Review
+                            </h3>
+                            {isReviewLoading ? (
+                                <div className="space-y-2 animate-pulse">
+                                    <div className="h-4 bg-gold-100 rounded w-5/6"></div>
+                                    <div className="h-4 bg-gold-100 rounded w-full"></div>
+                                    <div className="h-4 bg-gold-100 rounded w-4/5"></div>
+                                </div>
+                            ) : reviewText ? (
+                                <p className="text-gray-700 leading-relaxed font-serif text-lg italic relative z-10 border-l-2 border-gold-400 pl-4">
+                                    {reviewText}
+                                </p>
+                            ) : (
+                                <p className="text-gray-500 text-sm italic">Compatibility details are being computed by the Guide...</p>
+                            )}
                         </section>
 
                         {/* Soul DNA Icebreaker Banner */}

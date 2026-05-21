@@ -22,6 +22,8 @@ const envSchema = z.object({
     INSTAGRAM_APP_SECRET: z.string().optional(),
     INSTAGRAM_REDIRECT_URI: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+    GOOGLE_GEN_AI_KEY: z.string().optional(),
     CLOUDINARY_CLOUD_NAME: z.string().optional(),
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),

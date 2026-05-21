@@ -46,7 +46,9 @@ export default function VerificationModule({ onVerified }: VerificationModulePro
 
     const handleLinkedInConnect = () => {
         const userId = localStorage.getItem('userId') || '';
-        const popupUrl = `${(import.meta as any).env?.VITE_API_URL || 'http://localhost:3001'}/api/auth/linkedin?userId=${userId}&popup=true`;
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
+        const popupUrl = `${baseUrl}/api/auth/linkedin?userId=${userId}&popup=true`;
         
         const width = 600;
         const height = 700;

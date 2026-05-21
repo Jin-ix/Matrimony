@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowLeft, Bell, LogOut, Shield, User, Heart, EyeOff,
     Save, ChevronRight, Activity, CheckCircle, MapPin, Church,
-    Briefcase, GraduationCap, Instagram, CheckCircle2, X
+    Briefcase, GraduationCap, Instagram, CheckCircle2, X,
+    Upload, FileText, Clock, AlertCircle
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-type SettingsTab = 'profile' | 'preferences' | 'privacy' | 'notifications';
+type SettingsTab = 'profile' | 'preferences' | 'privacy' | 'notifications' | 'verification';
 
-const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const API = import.meta.env.VITE_API_URL || `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api`;
 
 const RITE_DISPLAY: Record<string, string> = {
     SYRO_MALABAR: 'Syro-Malabar',
@@ -60,17 +61,29 @@ function Toast({ type, message }: { type: 'success' | 'error'; message: string }
 
 export default function Settings() {
     const navigate = useNavigate();
-    const [_searchParams] = useSearchParams();
-    const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+    const [searchParams] = useSearchParams();
+    const initialTab = (searchParams.get('tab') as SettingsTab) || 'profile';
+    const [activeTab, setActiveTab] = useState<SettingsTab>(
+        ['profile', 'preferences', 'privacy', 'notifications', 'verification'].includes(initialTab)
+            ? initialTab
+            : 'profile'
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     // profile comes from the backend API (mirrors the Supabase Profile table)
-    const [userData, setUserData] = useState<any>(null);     // { id, email, phone, role, isVerified, profile, photos }
+    const [userData, setUserData] = useState<any>(null);     // { id, email, phone, role, isVerified, ghostMode, photoVisibilityOptIn }
     const [profile, setProfile] = useState<any>({});
     const [preferences, setPreferences] = useState<any>({});
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const tab = searchParams.get('tab') as SettingsTab;
+        if (tab && ['profile', 'preferences', 'privacy', 'notifications', 'verification'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     const showToast = useCallback((type: 'success' | 'error', message: string) => {
         setToast({ type, message });
@@ -110,7 +123,7 @@ export default function Settings() {
                 // Primary: Supabase REST API (HTTPS — always works, bypasses TCP pooler)
                 const [profileRes, userRes, prefsRes] = await Promise.all([
                     supabase.from('Profile').select('*').eq('userId', userId).maybeSingle(),
-                    supabase.from('User').select('id,email,phone,role,isVerified,createdAt,ghostMode').eq('id', userId).maybeSingle(),
+                    supabase.from('User').select('id,email,phone,role,isVerified,createdAt,ghostMode,photoVisibilityOptIn').eq('id', userId).maybeSingle(),
                     supabase.from('MatchPreferences').select('*').eq('userId', userId).maybeSingle(),
                 ]);
 
@@ -139,7 +152,7 @@ export default function Settings() {
                 if (!profileRes.data) {
                     console.log('No profile in Supabase, trying backend API…');
                     try {
-                        const res = await fetch(`${API}/api/profile/me`, { headers: apiHeaders(userId) });
+                        const res = await fetch(`${API}/profile/me`, { headers: apiHeaders(userId) });
                         if (res.ok) {
                             const d = await res.json();
                             setUserData(d);
@@ -201,7 +214,7 @@ export default function Settings() {
             if (error) {
                 console.error('Supabase save error:', error);
                 // Try backend as fallback
-                const res = await fetch(`${API}/api/profile/me`, {
+                const res = await fetch(`${API}/profile/me`, {
                     method: 'PUT',
                     headers: apiHeaders(userId),
                     body: JSON.stringify(row),
@@ -237,7 +250,7 @@ export default function Settings() {
                 
                 if (prefError) {
                     console.error('Supabase prefs save error:', prefError);
-                    await fetch(`${API}/api/profile/preferences`, {
+                    await fetch(`${API}/profile/preferences`, {
                         method: 'PUT',
                         headers: apiHeaders(userId),
                         body: JSON.stringify(prefsRow),
@@ -259,6 +272,7 @@ export default function Settings() {
         { id: 'profile',       icon: User,   label: 'Profile Details',   desc: 'Manage your personal and faith identity' },
         { id: 'preferences',   icon: Heart,  label: 'Matching Criteria',  desc: 'Set your partner preferences and filters' },
         { id: 'privacy',       icon: Shield, label: 'Privacy & Security', desc: 'Account security and visibility settings' },
+        { id: 'verification',  icon: CheckCircle2, label: 'Verification Badge', desc: 'Verify your Catholic faith & profile' },
         { id: 'notifications', icon: Bell,   label: 'Notifications',      desc: 'Communication and alert preferences' },
     ] as const;
 
@@ -355,7 +369,8 @@ export default function Settings() {
                             >
                                 {activeTab === 'profile'       && <ProfileForm profile={profile} setProfile={setProfile} loading={loading} userId={getUserId()} />}
                                 {activeTab === 'preferences'   && <PreferencesSettings preferences={preferences} setPreferences={setPreferences} />}
-                                {activeTab === 'privacy'       && <PrivacySettings />}
+                                {activeTab === 'privacy'       && <PrivacySettings userData={userData} setUserData={setUserData} showToast={showToast} />}
+                                {activeTab === 'verification'  && <VerificationForm userData={userData} setUserData={setUserData} showToast={showToast} />}
                                 {activeTab === 'notifications' && <NotificationSettings />}
                             </motion.div>
                         </AnimatePresence>
@@ -538,7 +553,7 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
     const connectInstagram = () => {
         if (igConnecting) return;
         setIgConnecting(true);
-        const url = `${API}/api/auth/instagram?userId=${userId}&popup=true`;
+        const url = `${API}/auth/instagram?userId=${userId}&popup=true`;
         const popup = window.open(url, 'ig_oauth', 'width=520,height=680,scrollbars=yes');
         const timer = setInterval(() => { if (popup?.closed) { clearInterval(timer); setIgConnecting(false); } }, 700);
         const onMsg = (e: MessageEvent) => { if (e.data?.type === 'INSTAGRAM_SUCCESS') { clearInterval(timer); setIgConnecting(false); window.removeEventListener('message', onMsg); } };
@@ -713,7 +728,7 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
                                 }
                             </button>
                             {/* LinkedIn */}
-                            <a href={`${API}/api/auth/linkedin?userId=${userId}&popup=true`} target="_blank" rel="noreferrer"
+                            <a href={`${API}/auth/linkedin?userId=${userId}&popup=true`} target="_blank" rel="noreferrer"
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#0077b5] hover:bg-[#005a87] text-white rounded-xl text-[13px] font-medium transition-colors shadow-sm"
                             >
                                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -819,14 +834,101 @@ function PreferencesSettings({ preferences, setPreferences }: { preferences: any
     );
 }
 
-// ─── Privacy ──────────────────────────────────────────────────────────────────
+// ─── Privacy ─────────────────────────────────────────────────────────────
 
-function PrivacySettings() {
+function PrivacySettings({ userData, setUserData, showToast }: {
+    userData: any;
+    setUserData: (fn: (prev: any) => any) => void;
+    showToast: (type: 'success' | 'error', msg: string) => void;
+}) {
     const uid = localStorage.getItem('userId') || '';
+
+    // ── Local toggle state — synced from userData once it loads ──────────────
+    const [photoVisible, setPhotoVisible] = useState<boolean>(false);
+    const [ghostEnabled, setGhostEnabled] = useState<boolean>(false);
+    const [togglingPhoto, setTogglingPhoto] = useState(false);
+    const [togglingGhost, setTogglingGhost] = useState(false);
+
+    // Sync from parent userData when it arrives (or changes)
+    useEffect(() => {
+        if (userData) {
+            setPhotoVisible(!!userData.photoVisibilityOptIn);
+            setGhostEnabled(!!userData.ghostMode);
+        }
+    }, [userData?.photoVisibilityOptIn, userData?.ghostMode]);
+
+    const handlePhotoVisibility = async () => {
+        const next = !photoVisible;
+        // Optimistic update immediately
+        setPhotoVisible(next);
+        setTogglingPhoto(true);
+        try {
+            const res = await fetch(`${API}/profile/photo-visibility`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': uid,
+                    'x-user-role': localStorage.getItem('userRole') || 'candidate',
+                },
+                body: JSON.stringify({ enabled: next }),
+            });
+            if (res.ok) {
+                setUserData((prev: any) => ({ ...prev, photoVisibilityOptIn: next }));
+                showToast('success', next
+                    ? 'Your photo is now visible in the match feed.'
+                    : 'Your photo is hidden from the match feed.');
+            } else {
+                // Rollback on failure
+                setPhotoVisible(!next);
+                showToast('error', 'Could not update photo visibility.');
+            }
+        } catch {
+            setPhotoVisible(!next);
+            showToast('error', 'Network error. Please try again.');
+        } finally {
+            setTogglingPhoto(false);
+        }
+    };
+
+    const handleGhostMode = async () => {
+        const next = !ghostEnabled;
+        // Optimistic update immediately
+        setGhostEnabled(next);
+        setTogglingGhost(true);
+        try {
+            const res = await fetch(`${API}/profile/ghost-mode`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': uid,
+                    'x-user-role': localStorage.getItem('userRole') || 'candidate',
+                },
+                body: JSON.stringify({ enabled: next }),
+            });
+            if (res.ok) {
+                setUserData((prev: any) => ({ ...prev, ghostMode: next }));
+                showToast('success', next
+                    ? 'Ghost Mode enabled — you are now hidden from all discovery feeds.'
+                    : 'Ghost Mode disabled — you are visible in discovery feeds.');
+            } else {
+                // Rollback on failure
+                setGhostEnabled(!next);
+                showToast('error', 'Could not update Ghost Mode.');
+            }
+        } catch {
+            setGhostEnabled(!next);
+            showToast('error', 'Network error. Please try again.');
+        } finally {
+            setTogglingGhost(false);
+        }
+    };
+
     return (
         <div className="space-y-8">
             <SectionHeader title="Privacy & Security" desc="Maintain control over your account and who sees your profile." />
-            <div className="space-y-6 max-w-2xl mt-8">
+            <div className="space-y-5 max-w-2xl mt-8">
+
+                {/* Account ID */}
                 <div className="p-5 rounded-2xl border border-gold-200/60 bg-gold-50/50">
                     <h3 className="font-semibold text-sacred-dark mb-1">🔑 Your Account ID</h3>
                     <p className="text-[13px] text-gray-500 mb-3">Share with a parent to link their account to your Kitchen Table.</p>
@@ -835,19 +937,78 @@ function PrivacySettings() {
                         <button onClick={() => navigator.clipboard.writeText(uid)} className="px-4 py-2.5 rounded-xl text-[13px] font-medium border bg-white border-gold-200 text-gold-700 hover:bg-gold-50 transition-all">Copy</button>
                     </div>
                 </div>
-                <div className="flex items-center justify-between p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
+
+                {/* Photo Visibility Toggle */}
+                <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
+                    photoVisible ? 'bg-emerald-50/60 border-emerald-200' : 'bg-gray-50/60 border-gray-200'
+                }`}>
                     <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><EyeOff className="w-5 h-5" /></div>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                            photoVisible ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
+                        }`}>
+                            <EyeOff className="w-5 h-5" />
+                        </div>
                         <div>
-                            <h3 className="font-medium text-sacred-dark">Ghost Mode</h3>
-                            <p className="text-[13px] text-gray-500">Your profile is hidden from all discovery feeds.</p>
+                            <h3 className="font-medium text-sacred-dark">Photo Visibility in Match Feed</h3>
+                            <p className="text-[13px] text-gray-500">
+                                {photoVisible
+                                    ? 'Your profile photo is visible to all candidates in their discovery feed.'
+                                    : 'Your photo is blurred until a mutual match is confirmed.'}
+                            </p>
                         </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500" />
-                    </label>
+                    <button
+                        id="photo-visibility-toggle"
+                        disabled={togglingPhoto}
+                        onClick={handlePhotoVisibility}
+                        className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-400 ${
+                            photoVisible ? 'bg-emerald-500' : 'bg-gray-300'
+                        } ${togglingPhoto ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:opacity-90'}`}
+                        aria-label="Toggle photo visibility"
+                        aria-pressed={photoVisible}
+                    >
+                        <span className={`absolute top-[3px] left-[3px] w-[18px] h-[18px] bg-white rounded-full shadow transition-transform duration-300 ${
+                            photoVisible ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                    </button>
                 </div>
+
+                {/* Ghost Mode Toggle */}
+                <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
+                    ghostEnabled ? 'bg-indigo-50/60 border-indigo-200' : 'bg-gray-50/60 border-gray-200'
+                }`}>
+                    <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                            ghostEnabled ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                            <EyeOff className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-sacred-dark">Ghost Mode</h3>
+                            <p className="text-[13px] text-gray-500">
+                                {ghostEnabled
+                                    ? 'You are hidden from all discovery feeds.'
+                                    : 'Your profile is visible in discovery feeds.'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        id="ghost-mode-toggle"
+                        disabled={togglingGhost}
+                        onClick={handleGhostMode}
+                        className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-400 ${
+                            ghostEnabled ? 'bg-indigo-500' : 'bg-gray-300'
+                        } ${togglingGhost ? 'opacity-60 cursor-wait' : 'cursor-pointer hover:opacity-90'}`}
+                        aria-label="Toggle ghost mode"
+                        aria-pressed={ghostEnabled}
+                    >
+                        <span className={`absolute top-[3px] left-[3px] w-[18px] h-[18px] bg-white rounded-full shadow transition-transform duration-300 ${
+                            ghostEnabled ? 'translate-x-6' : 'translate-x-0'
+                        }`} />
+                    </button>
+                </div>
+
+                {/* Change Password */}
                 <div className="pt-4 border-t border-gray-100">
                     <h3 className="font-medium text-sacred-dark mb-4">Update Password</h3>
                     <div className="space-y-3">
@@ -860,6 +1021,7 @@ function PrivacySettings() {
         </div>
     );
 }
+
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
@@ -894,6 +1056,334 @@ function NotificationSettings() {
                         </label>
                     ))}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Verification Form ─────────────────────────────────────────────────────────
+
+function VerificationForm({ userData, setUserData, showToast }: {
+    userData: any;
+    setUserData: React.Dispatch<React.SetStateAction<any>>;
+    showToast: (type: 'success' | 'error', message: string) => void;
+}) {
+    const userId = getUserId();
+    const [loading, setLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isDemoVerifying, setIsDemoVerifying] = useState(false);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [documentType, setDocumentType] = useState<'baptism_certificate' | 'government_id'>('baptism_certificate');
+
+    const fetchStatus = useCallback(async () => {
+        if (!userId) return;
+        try {
+            const res = await fetch(`${API}/verification/status`, {
+                headers: apiHeaders(userId)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setDocuments(data.documents || []);
+                if (data.isVerified !== userData?.isVerified) {
+                    setUserData((prev: any) => ({ ...prev, isVerified: data.isVerified }));
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching verification status:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, userData?.isVerified, setUserData]);
+
+    useEffect(() => {
+        fetchStatus();
+    }, [fetchStatus]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            try {
+                const base64Data = reader.result as string;
+                const response = await fetch(`${API}/verification/upload`, {
+                    method: 'POST',
+                    headers: apiHeaders(userId),
+                    body: JSON.stringify({
+                        documentType,
+                        fileData: base64Data,
+                        fileName: file.name
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('success', 'Document uploaded successfully! Status: PENDING.');
+                    await fetchStatus();
+                } else {
+                    const err = await response.json();
+                    showToast('error', err.error || 'Failed to upload document.');
+                }
+            } catch (err) {
+                console.error('Error uploading document:', err);
+                showToast('error', 'Network error uploading document.');
+            } finally {
+                setIsUploading(false);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleAutoVerify = async () => {
+        if (!userId) return;
+        setIsDemoVerifying(true);
+        try {
+            // Step 1: Silent mock upload
+            const dummyBase64 = 'data:image/png;base64,iVBOR05ErkJggg=='; // small valid png header structure
+            const uploadRes = await fetch(`${API}/verification/upload`, {
+                method: 'POST',
+                headers: apiHeaders(userId),
+                body: JSON.stringify({
+                    documentType: 'baptism_certificate',
+                    fileData: dummyBase64,
+                    fileName: 'demo_baptism_certificate.png'
+                })
+            });
+
+            if (!uploadRes.ok) {
+                const err = await uploadRes.json();
+                showToast('error', `Mock upload failed: ${err.error || 'Unknown error'}`);
+                setIsDemoVerifying(false);
+                return;
+            }
+
+            const uploadData = await uploadRes.json();
+            const documentId = uploadData.data?.id;
+
+            if (!documentId) {
+                showToast('error', 'Mock upload did not return a document ID.');
+                setIsDemoVerifying(false);
+                return;
+            }
+
+            // Step 2: Instant approval via admin-verify
+            const verifyRes = await fetch(`${API}/verification/admin-verify`, {
+                method: 'POST',
+                headers: apiHeaders(userId),
+                body: JSON.stringify({
+                    documentId,
+                    status: 'APPROVED'
+                })
+            });
+
+            if (verifyRes.ok) {
+                showToast('success', 'Demo verification complete! Profile is now Verified Catholic.');
+                setUserData((prev: any) => ({ ...prev, isVerified: true }));
+                // Update local storage so session stays synced
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        const parsed = JSON.parse(storedUser);
+                        parsed.isVerified = true;
+                        localStorage.setItem('user', JSON.stringify(parsed));
+                    } catch {}
+                }
+                await fetchStatus();
+            } else {
+                const err = await verifyRes.json();
+                showToast('error', `Approval failed: ${err.error || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('Error during auto-verify:', err);
+            showToast('error', 'Network error during auto-verification.');
+        } finally {
+            setIsDemoVerifying(false);
+        }
+    };
+
+    const getStatusStyles = (status: string) => {
+        switch (status) {
+            case 'APPROVED':
+                return 'bg-emerald-50 border-emerald-200 text-emerald-700';
+            case 'REJECTED':
+                return 'bg-rose-50 border-rose-200 text-rose-700';
+            case 'PENDING':
+            default:
+                return 'bg-amber-50 border-amber-200 text-amber-700';
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="py-20 flex flex-col items-center gap-3 text-gray-400">
+                <div className="w-8 h-8 rounded-full border-4 border-gold-200 border-t-gold-500 animate-spin" />
+                <p className="text-sm">Loading verification details…</p>
+            </div>
+        );
+    }
+
+    const pendingDocs = documents.filter(d => d.status === 'PENDING');
+    const isPending = pendingDocs.length > 0;
+    const isVerified = userData?.isVerified;
+
+    return (
+        <div className="space-y-8">
+            <SectionHeader title="Verification Badge" desc="Verify your identity and Catholic membership to display a premium Gold Badge." />
+
+            <div className="space-y-6 max-w-2xl mt-8">
+                {/* Current Status Box */}
+                {isVerified ? (
+                    <div className="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/40 flex items-start space-x-4">
+                        <div className="p-3 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                            <CheckCircle2 className="w-6 h-6 animate-pulse" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-emerald-800 text-[16px] mb-1">⚜️ Profile Fully Verified</h3>
+                            <p className="text-emerald-700 text-sm leading-relaxed">
+                                Congratulations! Your Catholic identity has been verified. The premium Gold Badge is active next to your name. Other users can now see you are a verified member.
+                            </p>
+                        </div>
+                    </div>
+                ) : isPending ? (
+                    <div className="p-6 rounded-2xl border border-amber-200 bg-amber-50/40 flex items-start space-x-4">
+                        <div className="p-3 rounded-full bg-amber-100 text-amber-600 shrink-0">
+                            <Clock className="w-6 h-6 animate-spin-slow" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-amber-800 text-[16px] mb-1">⏳ Verification Pending</h3>
+                            <p className="text-amber-700 text-sm leading-relaxed">
+                                Your document upload is currently in queue. Our review team is validating your details. This process typically takes 24-48 hours.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-6 rounded-2xl border border-gold-200/60 bg-gold-50/30 flex items-start space-x-4">
+                        <div className="p-3 rounded-full bg-gold-100 text-gold-700 shrink-0">
+                            <AlertCircle className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-gold-800 text-[16px] mb-1">Verification Required</h3>
+                            <p className="text-gold-700 text-sm leading-relaxed mb-3">
+                                Get your "Verified Catholic" badge by uploading either a Baptism Certificate or a valid Government ID. Verified members enjoy increased match requests and greater trust.
+                            </p>
+                            <button
+                                onClick={handleAutoVerify}
+                                disabled={isDemoVerifying}
+                                className="flex items-center space-x-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 hover:to-gold-500 text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-md transition-all active:scale-95 disabled:opacity-60"
+                            >
+                                {isDemoVerifying ? (
+                                    <>
+                                        <Activity className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Verifying…</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Auto-Verify (Demo Mode)</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Upload Form */}
+                {!isVerified && (
+                    <div className="p-6 rounded-3xl border border-gray-100 bg-white shadow-sm space-y-6">
+                        <h3 className="font-semibold text-sacred-dark text-lg">Upload Documents</h3>
+                        
+                        {/* Selector */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setDocumentType('baptism_certificate')}
+                                className={`p-4 rounded-xl border-2 text-center transition-all ${
+                                    documentType === 'baptism_certificate'
+                                        ? 'border-gold-400 bg-gold-50/20 text-gold-800 font-semibold shadow-sm'
+                                        : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                                }`}
+                            >
+                                <Church className="w-5 h-5 mx-auto mb-2 opacity-80" />
+                                <span className="text-xs uppercase tracking-wider">Baptism Certificate</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDocumentType('government_id')}
+                                className={`p-4 rounded-xl border-2 text-center transition-all ${
+                                    documentType === 'government_id'
+                                        ? 'border-gold-400 bg-gold-50/20 text-gold-800 font-semibold shadow-sm'
+                                        : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                                }`}
+                            >
+                                <Shield className="w-5 h-5 mx-auto mb-2 opacity-80" />
+                                <span className="text-xs uppercase tracking-wider">Government ID</span>
+                            </button>
+                        </div>
+
+                        {/* File Inputs */}
+                        <div className="relative border-2 border-dashed border-gray-200 rounded-2xl p-8 hover:bg-gray-50/50 hover:border-gold-300 transition-colors flex flex-col items-center justify-center text-center cursor-pointer">
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={handleFileUpload}
+                                disabled={isUploading}
+                            />
+                            <div className="p-3 rounded-full bg-gold-50 text-gold-600 mb-3">
+                                <Upload className="w-6 h-6" />
+                            </div>
+                            <p className="text-[14px] text-gray-700 font-semibold mb-1">
+                                {isUploading ? 'Uploading file…' : 'Click to select or drag document here'}
+                            </p>
+                            <p className="text-[11px] text-gray-400 uppercase tracking-widest">
+                                PDF, PNG, JPG up to 10MB
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Upload History */}
+                {documents.length > 0 && (
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-sacred-dark text-lg">Document History</h3>
+                        <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white/50 backdrop-blur-sm">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50/80 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
+                                        <th className="px-6 py-4">Document Type</th>
+                                        <th className="px-6 py-4">Uploaded</th>
+                                        <th className="px-6 py-4 text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {documents.map((doc) => (
+                                        <tr key={doc.id} className="border-b border-gray-100 last:border-0 hover:bg-white/40 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-sacred-dark flex items-center gap-2">
+                                                <FileText className="w-4 h-4 text-gold-500 shrink-0" />
+                                                <span className="capitalize text-[13px]">
+                                                    {doc.documentType.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500 text-[13px]">
+                                                {new Date(doc.createdAt).toLocaleDateString(undefined, {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                })}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusStyles(doc.status)}`}>
+                                                    {doc.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

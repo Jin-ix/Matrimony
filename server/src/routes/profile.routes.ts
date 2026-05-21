@@ -18,6 +18,7 @@ router.post('/photos', uploadPhoto.single('photo'), profileController.uploadPhot
 router.delete('/photos/:photoId', profileController.deletePhoto);
 router.put('/photos/:photoId/primary', profileController.setPrimaryPhoto);
 router.put('/ghost-mode', profileController.toggleGhostMode);
+router.put('/photo-visibility', profileController.togglePhotoVisibility);
 router.get('/:userId', profileController.getPublicProfile);
 
 export default router;

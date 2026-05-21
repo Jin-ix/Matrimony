@@ -13,7 +13,7 @@ export async function getUserConversations(userId: string) {
                 include: {
                     user: {
                         include: {
-                            profile: { select: { firstName: true, lastName: true } },
+                            profile: { select: { firstName: true, lastName: true, age: true, location: true, rite: true } },
                             photos: { where: { isPrimary: true }, take: 1 },
                         },
                     },
@@ -37,6 +37,11 @@ export async function getUserConversations(userId: string) {
                 id: otherParticipant.userId,
                 name: otherParticipant.user.profile?.firstName || 'Unknown',
                 avatar: otherParticipant.user.photos[0]?.url || '',
+                age: otherParticipant.user.profile?.age,
+                location: otherParticipant.user.profile?.location,
+                rite: otherParticipant.user.profile?.rite,
+                photoVisibilityOptIn: otherParticipant.user.photoVisibilityOptIn,
+                isVerified: otherParticipant.user.isVerified,
             } : null,
             lastMessage: lastMessage ? {
                 text: lastMessage.text,
@@ -78,6 +83,7 @@ export async function getConversationMessages(
         id: matchParticipant.userId,
         name: matchParticipant.user.profile?.firstName || 'Unknown',
         avatar: matchParticipant.user.photos[0]?.url || '',
+        isVerified: matchParticipant.user.isVerified,
     } : null;
 
     const messages = await prisma.message.findMany({

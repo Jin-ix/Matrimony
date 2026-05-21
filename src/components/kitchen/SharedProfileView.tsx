@@ -1,8 +1,9 @@
 import { MapPin, ShieldCheck, Heart, BookOpen, Home, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import RadialChart from '../ui/RadialChart';
 
-export default function SharedProfileView({ user, compatibility, loading = false }: { user: any, compatibility?: any, loading?: boolean }) {
+export default function SharedProfileView({ user, compatibility, loading = false, candidateId }: { user: any, compatibility?: any, loading?: boolean, candidateId?: string }) {
     if (loading) {
         return (
             <div className="h-full w-full flex flex-col items-center justify-center bg-sacred-offwhite p-6">
@@ -23,6 +24,42 @@ export default function SharedProfileView({ user, compatibility, loading = false
             <p className="text-rose-500 font-medium">User object retrieved, but no profile was attached: {JSON.stringify(user)}</p>
         </div>
     );
+
+    const [isMatched, setIsMatched] = useState(false);
+
+    useEffect(() => {
+        const checkMatchStatus = async () => {
+            try {
+                const myUserId = localStorage.getItem('userId');
+                const myRole = localStorage.getItem('userRole') || 'candidate';
+                const token = localStorage.getItem('token');
+                
+                const effectiveCandidateId = candidateId || localStorage.getItem('linkedCandidateId') || myUserId;
+                if (!effectiveCandidateId || !user?.id) return;
+
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                if (myUserId) {
+                    headers['x-user-id'] = myUserId;
+                    headers['x-user-role'] = myRole;
+                }
+
+                const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+                const res = await fetch(`${API}/conversations`, { headers });
+                if (!res.ok) throw new Error('Failed to fetch conversations');
+                
+                const conversations = await res.json();
+                const matchFound = conversations.some((conv: any) => conv.matchUser?.id === user.id);
+                setIsMatched(matchFound);
+            } catch (err) {
+                console.error('Error checking match status in SharedProfileView:', err);
+                setIsMatched(false);
+            }
+        };
+        checkMatchStatus();
+    }, [user?.id, candidateId]);
 
     const { profile, photos } = user;
     const primaryPhoto = photos?.find((p: any) => p.isPrimary)?.url || photos?.[0]?.url || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
@@ -61,13 +98,13 @@ export default function SharedProfileView({ user, compatibility, loading = false
                 <div className="relative aspect-[3/4] w-full">
                     <img
                         src={primaryPhoto}
-                        alt={profile.firstName}
-                        className="h-full w-full object-cover"
+                        alt={isMatched ? profile.firstName : 'Candidate'}
+                        className={`h-full w-full object-cover ${!isMatched ? 'blur-xl' : ''}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     <div className="absolute bottom-6 left-6 right-6">
                         <h1 className="font-serif text-4xl text-white drop-shadow-lg">
-                            {profile.firstName} {profile.lastName}, {profile.age}
+                            {isMatched ? `${profile.firstName} ${profile.lastName}` : '••••••'}, {profile.age}
                         </h1>
                         <div className="mt-3 flex flex-wrap gap-2 text-white/90">
                             <span className="flex items-center text-xs font-medium bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full">

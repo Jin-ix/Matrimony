@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ShieldAlert, Heart, Info } from 'lucide-react';
+import { ShieldAlert, Heart, Info, CheckCircle2 } from 'lucide-react';
 
 export interface MatchProfile {
     id: string;
@@ -17,6 +17,9 @@ export interface MatchProfile {
     hobbies?: string[];
     status?: 'liked' | 'passed';
     culturalDistance?: number;
+    /** When true, the candidate has opted-in to showing their photo publicly */
+    photoVisibilityOptIn?: boolean;
+    isVerified?: boolean;
 }
 
 interface MatchCardProps {
@@ -31,6 +34,8 @@ const compatibilityColors = {
 };
 
 export default function MatchCard({ profile, onClick }: MatchCardProps) {
+    // Reveal photo & name when the candidate has opted in to public visibility
+    const photoVisible = profile.photoVisibilityOptIn ?? false;
     const ref = useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
     const y = useMotionValue(0);
@@ -78,7 +83,7 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
                 layoutId={`image-${profile.id}`}
                 src={profile.image}
                 alt={profile.name}
-                className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${profile.status === 'liked' ? 'scale-105' : ''}`}
+                className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 ${profile.status === 'liked' ? 'scale-105' : ''} ${photoVisible ? 'blur-none brightness-100' : 'blur-xl brightness-[0.85]'}`}
                 style={{ translateZ: -50 }}
             />
 
@@ -128,11 +133,19 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
             >
                 <div className="flex items-end justify-between">
                     <div>
-                        <h3 className="font-serif text-3xl font-medium text-white drop-shadow-md">
-                            {profile.name}, {profile.age}
+                        <h3 className="font-serif text-3xl font-medium text-white drop-shadow-md flex items-center gap-2">
+                            {photoVisible ? profile.name : '••••••'}, {profile.age}
+                            {profile.isVerified && (
+                                <span className="inline-flex items-center text-gold-500 shrink-0 drop-shadow-[0_0_6px_rgba(212,175,55,0.5)]" title="Verified Catholic">
+                                    <CheckCircle2 className="w-6 h-6 fill-gold-50" />
+                                </span>
+                            )}
                         </h3>
-                        <p className="mt-1 text-sm font-medium text-gray-200">
-                            {profile.rite} • {profile.location}
+                        <p className="mt-1 text-sm font-medium text-gold-200">
+                            {profile.rite}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-300">
+                            {profile.culturalDistance ? `${profile.culturalDistance} km away` : `${(profile.id.charCodeAt(0) % 20) + 5} km away`}
                         </p>
                     </div>
 

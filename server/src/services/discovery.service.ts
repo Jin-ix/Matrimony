@@ -35,7 +35,22 @@ export async function getDiscoveryFeed(
         where: { fromUserId: userId },
         select: { toUserId: true },
     });
-    const excludeIds = [userId, ...interactions.map((i) => i.toUserId)];
+
+    const blocks = await prisma.block.findMany({
+        where: {
+            OR: [
+                { blockerId: userId },
+                { blockedId: userId }
+            ]
+        },
+        select: {
+            blockerId: true,
+            blockedId: true
+        }
+    });
+    const blockedUserIds = blocks.map(b => b.blockerId === userId ? b.blockedId : b.blockerId);
+
+    const excludeIds = [userId, ...interactions.map((i) => i.toUserId), ...blockedUserIds];
 
     const where: Prisma.ProfileWhereInput = {
         userId: { notIn: excludeIds },
@@ -130,6 +145,8 @@ export async function getDiscoveryFeed(
             scoutRecommended: profile.user.receivedInteractions.length > 0,
             hobbies: profile.hobbies,
             culturalDistance: compat.culturalDistance,
+            photoVisibilityOptIn: profile.user.photoVisibilityOptIn,
+            isVerified: profile.user.isVerified,
         };
     });
 

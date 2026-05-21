@@ -79,17 +79,27 @@ export default function ConversationalAgent({
         const fetchInitialQuestion = async () => {
             try {
                 const token = localStorage.getItem('token');
-                if (!token) {
+                const userId = localStorage.getItem('userId') ||
+                    (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').id || ''; } catch { return ''; } })();
+                const role = localStorage.getItem('userRole') || 'candidate';
+
+                if (!token && !userId) {
                     setIsTyping(false);
                     return;
                 }
 
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/json',
+                };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                if (userId) {
+                    headers['x-user-id'] = userId;
+                    headers['x-user-role'] = role;
+                }
+
                 const res = await fetch(`${API}/ai/onboarding/chat`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers,
                     body: JSON.stringify({ message: '', currentStep: 0 }),
                 });
 
@@ -134,13 +144,22 @@ export default function ConversationalAgent({
 
         try {
             const token = localStorage.getItem('token');
+            const userId = localStorage.getItem('userId') ||
+                (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').id || ''; } catch { return ''; } })();
+            const role = localStorage.getItem('userRole') || 'candidate';
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            if (userId) {
+                headers['x-user-id'] = userId;
+                headers['x-user-role'] = role;
+            }
 
             const res = await fetch(`${API}/ai/onboarding/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                headers,
                 body: JSON.stringify({ message: userText, currentStep }),
             });
 

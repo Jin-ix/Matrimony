@@ -35,6 +35,7 @@ export async function getPublicProfile(userId: string) {
         id: user.id,
         role: user.role,
         isVerified: user.isVerified,
+        photoVisibilityOptIn: user.photoVisibilityOptIn,
         profile: user.profile,
         photos: user.photos,
     };
@@ -233,3 +234,13 @@ export async function toggleGhostMode(userId: string, enabled: boolean) {
         data: { ghostMode: enabled },
     });
 }
+
+export async function togglePhotoVisibility(userId: string, enabled: boolean) {
+    return prisma.user.update({
+        where: { id: userId },
+        data: { photoVisibilityOptIn: enabled },
+    });
+}
+
+
+

@@ -15,15 +15,13 @@ type OnboardingState = 'verification' | 'basicInfo' | 'chat' | 'upload' | 'trans
 
 export default function Onboarding() {
     const [step, setStep] = useState<OnboardingState>('verification');
-    const [role] = useState<'candidate' | 'scout'>('candidate');
-    const [_phone, setPhone] = useState<string>('');
-    const [_chatAnswers, _setChatAnswers] = useState<Record<string, any>>({});
+    const [role] = useState<'candidate' | 'scout'>(() => {
+        const storedRole = localStorage.getItem('userRole');
+        return storedRole === 'scout' ? 'scout' : 'candidate';
+    });
     const navigate = useNavigate();
 
-
-
-    const handleVerified = (verifiedPhone: string) => {
-        setPhone(verifiedPhone);
+    const handleVerified = (_verifiedPhone: string) => {
         setStep('basicInfo');
     };
 
@@ -45,7 +43,11 @@ export default function Onboarding() {
         try {
             const userStr = localStorage.getItem('user');
             const authUser = userStr ? JSON.parse(userStr) : null;
-            const userId = authUser?.id || crypto.randomUUID();
+            const userId = authUser?.id || localStorage.getItem('userId') || crypto.randomUUID();
+            
+            const isScout = role === 'scout';
+            const linkedCandidateId = localStorage.getItem('linkedCandidateId');
+            const targetUserId = (isScout && linkedCandidateId) ? linkedCandidateId : userId;
             
             // 5. Photos
             const photoPromises = photos.map((photo, index) => {
@@ -53,7 +55,7 @@ export default function Onboarding() {
                     if (photo.isBlurred) {
                         supabase.from('Photo').insert([{
                             id: crypto.randomUUID(),
-                            userId: userId,
+                            userId: targetUserId,
                             url: 'blurred_placeholder_url',
                             publicId: 'blurred',
                             isPrimary: index === 0,
@@ -68,7 +70,7 @@ export default function Onboarding() {
                             const base64String = reader.result as string;
                             supabase.from('Photo').insert([{
                                 id: crypto.randomUUID(),
-                                userId: userId,
+                                userId: targetUserId,
                                 url: base64String,
                                 publicId: 'clear',
                                 isPrimary: index === 0,
@@ -155,7 +157,7 @@ export default function Onboarding() {
                             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                             className="absolute inset-0 flex flex-col items-center justify-center p-6"
                         >
-                            <BasicInfoForm onComplete={handleBasicInfoComplete} />
+                            <BasicInfoForm role={role} onComplete={handleBasicInfoComplete} />
                         </motion.div>
                     )}
 
