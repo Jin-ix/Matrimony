@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import AIIcebreakerBanner from '../components/messages/AIIcebreakerBanner';
 import SecureChatFeed from '../components/messages/SecureChatFeed';
 import DecisionActionSheet from '../components/messages/DecisionActionSheet';
 import { motion, AnimatePresence } from 'framer-motion';
+import { resolvePhotoUrl } from '../utils/photo';
 
 import { supabase } from '../lib/supabase';
 
@@ -18,7 +18,6 @@ interface MatchUser {
 export default function Messages() {
     const { chatId } = useParams();
     const navigate = useNavigate();
-    const [selectedIcebreaker, setSelectedIcebreaker] = useState<string>('');
     const [showActionSheet, setShowActionSheet] = useState(false);
     const [isArchiving, setIsArchiving] = useState(false);
     const [showBlockConfirm, setShowBlockConfirm] = useState(false);
@@ -53,7 +52,12 @@ export default function Messages() {
 
                 if (res && res.ok) {
                     const data = await res.json();
-                    if (data.matchUser) setMatchUser(data.matchUser);
+                    if (data.matchUser) {
+                        setMatchUser({
+                            ...data.matchUser,
+                            avatar: resolvePhotoUrl(data.matchUser.avatar)
+                        });
+                    }
                     if (data.messages) setInitialMessages(data.messages);
                     return;
                 }
@@ -82,7 +86,7 @@ export default function Messages() {
                 setMatchUser({
                     id: otherUserId,
                     name: profile?.firstName || 'Unknown',
-                    avatar: photo?.url || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
+                    avatar: resolvePhotoUrl(photo?.url) || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80',
                     isVerified: user?.isVerified || false,
                 });
 
@@ -274,20 +278,11 @@ export default function Messages() {
             {/* Main Chat Area */}
             <main className="flex-1 overflow-hidden relative flex flex-col pt-2">
                 <div className="max-w-4xl mx-auto w-full flex flex-col h-full bg-white shadow-[0_0_60px_-15px_rgba(0,0,0,0.05)] rounded-t-[2.5rem] border-x border-t border-gold-100/50 overflow-hidden">
-                    <div className="shrink-0 z-10 bg-white">
-                        <AIIcebreakerBanner 
-                            matchName={matchUser.name} 
-                            matchUserId={matchUser.id}
-                            onSelectIcebreaker={(text) => setSelectedIcebreaker(text)}
-                        />
-                    </div>
                     <SecureChatFeed 
                         currentUser={{ id: currentUser.id || localStorage.getItem('userId') || 'me', name: currentUser.firstName || currentUser.name || 'Me' }} 
                         matchUser={matchUser} 
                         chatId={chatId!}
                         initialMessages={initialMessages}
-                        selectedIcebreaker={selectedIcebreaker}
-                        onClearIcebreaker={() => setSelectedIcebreaker('')}
                     />
                 </div>
             </main>

@@ -94,8 +94,19 @@ export async function getVerificationStatus(req: Request, res: Response, next: N
             return;
         }
 
+        const approvedCount = documents.filter(doc => doc.status === 'APPROVED').length;
+        let isVerified = user.isVerified;
+
+        if (isVerified && approvedCount === 0) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { isVerified: false }
+            });
+            isVerified = false;
+        }
+
         res.json({
-            isVerified: user.isVerified,
+            isVerified,
             documents
         });
     } catch (error) {

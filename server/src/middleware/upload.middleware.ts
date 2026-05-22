@@ -11,7 +11,7 @@ export const uploadPhoto = multer({
     storage,
     limits: {
         fileSize: MAX_FILE_SIZE,
-        files: 3,
+        files: 6,
     },
     fileFilter: (_req, file, cb) => {
         if (ALLOWED_TYPES.includes(file.mimetype)) {

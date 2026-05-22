@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Settings, Image as ImageIcon, MapPin, Church, Heart, Users, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { resolvePhotoUrl } from '../../utils/photo';
 import BlurredVideoPlayer from './BlurredVideoPlayer';
 
 interface UserProfileModalProps {
@@ -38,10 +39,10 @@ export default function UserProfileModal({ onClose, onSettingsClick }: UserProfi
 
                 // Fetch photo safely
                 const { data: photoData } = await supabase.from('Photo').select('*').eq('userId', userId).eq('isPrimary', true).limit(1);
-                if (photoData && photoData.length > 0) setPhotoUrl(photoData[0].url);
+                if (photoData && photoData.length > 0) setPhotoUrl(resolvePhotoUrl(photoData[0].url));
                 else {
                     const { data: anyPhoto } = await supabase.from('Photo').select('*').eq('userId', userId).limit(1);
-                    if (anyPhoto && anyPhoto.length > 0) setPhotoUrl(anyPhoto[0].url);
+                    if (anyPhoto && anyPhoto.length > 0) setPhotoUrl(resolvePhotoUrl(anyPhoto[0].url));
                 }
             } catch (err) {
                 console.error(err);

@@ -23,8 +23,8 @@ export async function uploadPhoto(
 
     // Check photo limit
     const photoCount = await prisma.photo.count({ where: { userId } });
-    if (photoCount >= 3) {
-        throw Object.assign(new Error('Maximum 3 photos allowed'), { statusCode: 400 });
+    if (photoCount >= 6) {
+        throw Object.assign(new Error('Maximum 6 photos allowed'), { statusCode: 400 });
     }
 
     // Process image with Sharp

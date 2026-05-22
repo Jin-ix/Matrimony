@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import MatchCard, { type MatchProfile } from './MatchCard';
 import { Heart } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { resolvePhotoUrl } from '../../utils/photo';
 
 import type { AdvancedFilters } from './AdvancedFiltersModal';
 
@@ -230,7 +231,7 @@ export default function MatchFeedGrid({
                             const fbImgs = userGender === 'female' ? maleImgs : femaleImgs;
                             setProfiles(resultData.profiles.map((p: any, i: number) => ({
                                 ...p,
-                                image: p.image || fbImgs[i % fbImgs.length],
+                                image: resolvePhotoUrl(p.image) || fbImgs[i % fbImgs.length],
                                 culturalDistance: p.culturalDistance ?? undefined,
                             })));
                             backendSucceeded = true;
@@ -341,7 +342,7 @@ export default function MatchFeedGrid({
                             gender: (p.gender ?? targetGender ?? 'male') as 'male' | 'female',
                             location: p.location ?? '',
                             rite: RITE_DISPLAY_MAP[p.rite] ?? p.rite ?? '',
-                            image: photoMap[p.userId] || fbImgs[i % fbImgs.length],
+                            image: resolvePhotoUrl(photoMap[p.userId]) || fbImgs[i % fbImgs.length],
                             compatibility: compatScore(p.rite),
                             hobbies: p.hobbies ?? [],
                             scoutRecommended: false,

@@ -8,6 +8,8 @@ import {
     Upload, FileText, Clock, AlertCircle
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { resolvePhotoUrl } from '../utils/photo';
+import { useTheme } from '../hooks/useTheme';
 
 type SettingsTab = 'profile' | 'preferences' | 'privacy' | 'notifications' | 'verification';
 
@@ -61,6 +63,7 @@ function Toast({ type, message }: { type: 'success' | 'error'; message: string }
 
 export default function Settings() {
     const navigate = useNavigate();
+    const { theme } = useTheme();
     const [searchParams] = useSearchParams();
     const initialTab = (searchParams.get('tab') as SettingsTab) || 'profile';
     const [activeTab, setActiveTab] = useState<SettingsTab>(
@@ -120,6 +123,18 @@ export default function Settings() {
             if (!userId) { setLoading(false); return; }
 
             try {
+                // Run verification status check on mount to auto-trigger self-correction
+                let correctedVerified = false;
+                try {
+                    const vRes = await fetch(`${API}/verification/status`, { headers: apiHeaders(userId) });
+                    if (vRes.ok) {
+                        const vData = await vRes.json();
+                        correctedVerified = vData.isVerified;
+                    }
+                } catch (ve) {
+                    console.warn('Verification status check failed on mount:', ve);
+                }
+
                 // Primary: Supabase REST API (HTTPS — always works, bypasses TCP pooler)
                 const [profileRes, userRes, prefsRes] = await Promise.all([
                     supabase.from('Profile').select('*').eq('userId', userId).maybeSingle(),
@@ -134,12 +149,28 @@ export default function Settings() {
                 }
 
                 if (userRes.data) {
-                    setUserData(userRes.data);
+                    const syncedUser = { ...userRes.data, isVerified: correctedVerified };
+                    setUserData(syncedUser);
+                    // Sync local storage user object
+                    const storedUser = localStorage.getItem('user');
+                    if (storedUser) {
+                        try {
+                            const parsed = JSON.parse(storedUser);
+                            parsed.isVerified = correctedVerified;
+                            localStorage.setItem('user', JSON.stringify(parsed));
+                        } catch {}
+                    }
                 } else if (userRes.error) {
                     console.warn('Supabase User fetch error:', userRes.error.message);
                     // Fallback: populate userRecord from localStorage
                     const stored = localStorage.getItem('user');
-                    if (stored) try { setUserData(JSON.parse(stored)); } catch {}
+                    if (stored) {
+                        try {
+                            const parsed = JSON.parse(stored);
+                            parsed.isVerified = correctedVerified;
+                            setUserData(parsed);
+                        } catch {}
+                    }
                 }
 
                 if (prefsRes.data) {
@@ -155,6 +186,7 @@ export default function Settings() {
                         const res = await fetch(`${API}/profile/me`, { headers: apiHeaders(userId) });
                         if (res.ok) {
                             const d = await res.json();
+                            d.isVerified = correctedVerified;
                             setUserData(d);
                             if (d.profile) setProfile(d.profile);
                             if (d.matchPreferences) setPreferences(d.matchPreferences);
@@ -278,21 +310,23 @@ export default function Settings() {
 
     return (
         <div
-            className="min-h-screen w-full relative overflow-x-hidden font-sans selection:bg-gold-200 selection:text-gold-900"
+            className="min-h-screen w-full relative overflow-x-hidden font-sans selection:bg-gold-200 selection:text-gold-900 transition-colors duration-500"
             style={{
-                backgroundImage: `linear-gradient(rgba(252,251,250,0.88), rgba(252,251,250,0.96)), url('https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=2069')`,
+                backgroundImage: theme === 'dark'
+                    ? `linear-gradient(rgba(11, 15, 25, 0.92), rgba(11, 15, 25, 0.97)), url('https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=2069')`
+                    : `linear-gradient(rgba(252, 251, 250, 0.88), rgba(252, 251, 250, 0.96)), url('https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=2069')`,
                 backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
             }}
         >
             <AnimatePresence>{toast && <Toast type={toast.type} message={toast.message} />}</AnimatePresence>
 
             {/* Header */}
-            <header className="sticky top-0 z-40 border-b border-gold-200/50 bg-white/80 backdrop-blur-3xl shadow-sm px-6 py-4 flex items-center justify-between">
+            <header className="sticky top-0 z-40 border-b border-gold-200/50 dark:border-white/10 bg-white/80 dark:bg-sacred-midnight/80 backdrop-blur-3xl shadow-sm px-6 py-4 flex items-center justify-between transition-colors">
                 <div className="flex items-center space-x-4">
-                    <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-gold-50 transition-colors text-sacred-dark border border-transparent hover:border-gold-100">
+                    <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-gold-50 dark:hover:bg-white/5 transition-colors text-sacred-dark dark:text-pearl-50 border border-transparent hover:border-gold-100 dark:hover:border-white/10">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h1 className="font-serif text-[24px] font-medium tracking-tight text-sacred-dark">Account Settings</h1>
+                    <h1 className="font-serif text-[24px] font-medium tracking-tight text-sacred-dark dark:text-pearl-50">Account Settings</h1>
                 </div>
                 <button
                     onClick={handleSave}
@@ -308,7 +342,7 @@ export default function Settings() {
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col md:flex-row items-start gap-8">
 
                 {/* Sidebar */}
-                <aside className="w-full md:w-72 shrink-0 border border-gray-100/50 bg-white/50 backdrop-blur-xl p-3 rounded-3xl">
+                <aside className="w-full md:w-72 shrink-0 border border-gray-100/50 dark:border-white/10 bg-white/50 dark:bg-sacred-midnight/40 backdrop-blur-xl p-3 rounded-3xl transition-colors">
                     <nav className="flex flex-col space-y-1.5">
                         {tabs.map((tab) => {
                             const Icon = tab.icon;
@@ -317,22 +351,22 @@ export default function Settings() {
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-start text-left p-4 rounded-2xl transition-all duration-200 border ${
                                         isActive
-                                            ? 'bg-gradient-to-br from-white to-gold-50/30 border-gold-200 shadow-sm'
-                                            : 'bg-transparent border-transparent hover:bg-white/60 hover:border-gold-100/50'
+                                            ? 'bg-gradient-to-br from-white to-gold-50/30 dark:from-sacred-midnight/80 dark:to-gold-950/20 border-gold-200 dark:border-gold-500/30 shadow-sm'
+                                            : 'bg-transparent border-transparent hover:bg-white/60 dark:hover:bg-white/5 hover:border-gold-100/50 dark:hover:border-white/10'
                                     }`}
                                 >
-                                    <div className={`p-2 rounded-xl shrink-0 mr-4 ${isActive ? 'bg-gold-100 text-gold-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    <div className={`p-2 rounded-xl shrink-0 mr-4 ${isActive ? 'bg-gold-100 dark:bg-gold-950/50 text-gold-700 dark:text-gold-400' : 'bg-gray-100 dark:bg-white/5 text-gray-500'}`}>
                                         <Icon className="w-5 h-5" />
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className={`font-medium text-[15px] mb-0.5 ${isActive ? 'text-sacred-dark' : 'text-gray-700'}`}>{tab.label}</h3>
-                                        <p className="text-[12px] text-gray-500 leading-snug">{tab.desc}</p>
+                                        <h3 className={`font-medium text-[15px] mb-0.5 ${isActive ? 'text-sacred-dark dark:text-pearl-50' : 'text-gray-700 dark:text-gray-300'}`}>{tab.label}</h3>
+                                        <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-snug">{tab.desc}</p>
                                     </div>
-                                    <ChevronRight className={`w-4 h-4 mt-2 transition-transform ${isActive ? 'text-gold-400 translate-x-1' : 'text-gray-300'}`} />
+                                    <ChevronRight className={`w-4 h-4 mt-2 transition-transform ${isActive ? 'text-gold-400 translate-x-1' : 'text-gray-300 dark:text-gray-500'}`} />
                                 </button>
                             );
                         })}
-                        <div className="pt-6 mt-6 border-t border-gold-200/50 px-4">
+                        <div className="pt-6 mt-6 border-t border-gold-200/50 dark:border-white/10 px-4">
                             <button onClick={() => { localStorage.clear(); navigate('/auth'); }}
                                 className="flex items-center space-x-3 text-rose-600 hover:text-rose-700 transition-colors py-2 font-medium text-[14px]">
                                 <LogOut className="w-4 h-4" /><span>Sign Out</span>
@@ -340,10 +374,10 @@ export default function Settings() {
                         </div>
                         <div className="pt-12 px-4 text-center opacity-60">
                             <div className="flex justify-center mb-2"><span className="text-gold-400 text-lg">✝</span></div>
-                            <p className="font-serif text-[12px] italic text-sacred-dark leading-relaxed">
+                            <p className="font-serif text-[12px] italic text-sacred-dark dark:text-pearl-50/80 leading-relaxed">
                                 "What therefore God hath joined together, let not man put asunder."
                             </p>
-                            <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">Mark 10:9</p>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-widest">Mark 10:9</p>
                         </div>
                     </nav>
                 </aside>
@@ -357,9 +391,9 @@ export default function Settings() {
                     )}
 
                     {/* Tab Panel */}
-                    <div className="bg-white rounded-3xl border border-gold-100/50 shadow-sm p-6 sm:p-8 relative overflow-hidden min-h-[500px]">
+                    <div className="bg-white dark:bg-sacred-midnight/40 rounded-3xl border border-gold-100/50 dark:border-white/10 shadow-sm p-6 sm:p-8 relative overflow-hidden min-h-[500px] transition-colors">
                         <div className="absolute top-0 right-0 w-96 h-96 bg-gold-400/5 blur-[120px] rounded-full pointer-events-none" />
-                        <div className="absolute bottom-[-10%] right-[-5%] text-gold-100/30 rotate-[-15deg] pointer-events-none">
+                        <div className="absolute bottom-[-10%] right-[-5%] text-gold-100/30 dark:text-gold-500/10 rotate-[-15deg] pointer-events-none">
                             <Heart className="w-96 h-96" strokeWidth={0.5} />
                         </div>
                         <AnimatePresence mode="wait">
@@ -367,11 +401,11 @@ export default function Settings() {
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.25 }} className="relative z-10 w-full"
                             >
-                                {activeTab === 'profile'       && <ProfileForm profile={profile} setProfile={setProfile} loading={loading} userId={getUserId()} />}
+                                {activeTab === 'profile'       && <ProfileForm profile={profile} setProfile={setProfile} loading={loading} userId={getUserId()} showToast={showToast} />}
                                 {activeTab === 'preferences'   && <PreferencesSettings preferences={preferences} setPreferences={setPreferences} />}
                                 {activeTab === 'privacy'       && <PrivacySettings userData={userData} setUserData={setUserData} showToast={showToast} />}
                                 {activeTab === 'verification'  && <VerificationForm userData={userData} setUserData={setUserData} showToast={showToast} />}
-                                {activeTab === 'notifications' && <NotificationSettings />}
+                                {activeTab === 'notifications' && <NotificationSettings userId={getUserId()} showToast={showToast} />}
                             </motion.div>
                         </AnimatePresence>
                     </div>
@@ -394,7 +428,8 @@ function ProfileSummaryCard({ profile, userData }: { profile: any; userData: any
         { icon: GraduationCap,   label: profile.education },
     ].filter(c => Boolean(c.label));
 
-    const completeness = Math.round(profile.profileComplete ?? 0);
+    const rawComplete = profile.profileComplete ?? 0;
+    const completeness = Math.round(rawComplete <= 1.0 && rawComplete > 0 ? rawComplete * 100 : rawComplete);
 
     return (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -476,8 +511,8 @@ function ProfileSummaryCard({ profile, userData }: { profile: any; userData: any
 
 // ─── Profile Form ─────────────────────────────────────────────────────────────
 
-const inputCls = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white outline-none transition-all';
-const labelCls = 'text-[13px] font-bold uppercase tracking-wider text-gray-500';
+const inputCls = 'w-full bg-gray-50 dark:bg-sacred-midnight/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-[15px] text-gray-800 dark:text-pearl-50 focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 focus:bg-white dark:focus:bg-sacred-midnight/80 outline-none transition-all';
+const labelCls = 'text-[13px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400';
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="space-y-2">
@@ -486,8 +521,8 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     </div>
 );
 
-function ProfileForm({ profile, setProfile, loading, userId }: {
-    profile: any; setProfile: any; loading: boolean; userId: string;
+function ProfileForm({ profile, setProfile, loading, userId, showToast }: {
+    profile: any; setProfile: any; loading: boolean; userId: string; showToast: (type: 'success' | 'error', message: string) => void;
 }) {
     const [photos, setPhotos]         = useState<any[]>([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -515,38 +550,75 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
         setIsUploading(true);
         const remaining = 6 - photos.length;
         const files = Array.from(e.target.files).slice(0, remaining);
+        
         for (const file of files) {
-            await new Promise<void>(res => {
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    const newPhoto = { id: crypto.randomUUID(), userId, url: reader.result as string, isPrimary: photos.length === 0, order: photos.length };
-                    await supabase.from('Photo').insert([newPhoto]);
+            try {
+                const formData = new FormData();
+                formData.append('photo', file);
+                
+                const res = await fetch(`${API}/profile/photos`, {
+                    method: 'POST',
+                    headers: {
+                        'x-user-id': userId,
+                        'x-user-role': localStorage.getItem('userRole') || 'candidate',
+                    },
+                    body: formData,
+                });
+                
+                if (res.ok) {
+                    const newPhoto = await res.json();
                     setPhotos(p => [...p, newPhoto]);
-                    res();
-                };
-                reader.readAsDataURL(file);
-            });
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    showToast('error', err.error || 'Failed to upload photo.');
+                }
+            } catch (err) {
+                console.error('Error uploading photo:', err);
+                showToast('error', 'Network error uploading photo.');
+            }
         }
         setIsUploading(false);
         if (e.target) e.target.value = '';
     };
 
     const removePhoto = async (id: string) => {
-        await supabase.from('Photo').delete().eq('id', id);
-        setPhotos(prev => {
-            const next = prev.filter(p => p.id !== id);
-            if (next.length && !next.some(p => p.isPrimary)) {
-                next[0].isPrimary = true;
-                supabase.from('Photo').update({ isPrimary: true }).eq('id', next[0].id).then();
+        try {
+            const res = await fetch(`${API}/profile/photos/${id}`, {
+                method: 'DELETE',
+                headers: apiHeaders(userId),
+            });
+            if (res.ok) {
+                setPhotos(prev => {
+                    const next = prev.filter(p => p.id !== id);
+                    if (prev.find(p => p.id === id)?.isPrimary && next.length) {
+                        next[0].isPrimary = true;
+                    }
+                    return next;
+                });
+                showToast('success', 'Photo removed.');
+            } else {
+                showToast('error', 'Failed to remove photo.');
             }
-            return next;
-        });
+        } catch (err) {
+            showToast('error', 'Network error removing photo.');
+        }
     };
 
     const makePrimary = async (id: string) => {
-        await supabase.from('Photo').update({ isPrimary: false }).eq('userId', userId);
-        await supabase.from('Photo').update({ isPrimary: true }).eq('id', id);
-        setPhotos(p => p.map(ph => ({ ...ph, isPrimary: ph.id === id })));
+        try {
+            const res = await fetch(`${API}/profile/photos/${id}/primary`, {
+                method: 'PUT',
+                headers: apiHeaders(userId),
+            });
+            if (res.ok) {
+                setPhotos(p => p.map(ph => ({ ...ph, isPrimary: ph.id === id })));
+                showToast('success', 'Primary photo updated.');
+            } else {
+                showToast('error', 'Failed to set primary photo.');
+            }
+        } catch (err) {
+            showToast('error', 'Network error setting primary photo.');
+        }
     };
 
     /* ── Instagram OAuth popup ── */
@@ -571,19 +643,19 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
     return (
         <div className="space-y-8">
             {/* Section header */}
-            <div className="relative pb-5 border-b border-gold-100/40">
-                <h2 className="text-2xl font-serif text-sacred-dark mb-1">Profile Details</h2>
-                <p className="text-sm text-gray-500">Your data is fetched live from the database. Click "Save Changes" to update.</p>
+            <div className="relative pb-5 border-b border-gold-100/40 dark:border-white/10">
+                <h2 className="text-2xl font-serif text-sacred-dark dark:text-pearl-50 mb-1">Profile Details</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Your data is fetched live from the database. Click "Save Changes" to update.</p>
                 <div className="absolute bottom-[-1px] left-0 w-24 h-[2px] bg-gradient-to-r from-gold-400 to-transparent" />
             </div>
 
             <div className="space-y-6 max-w-2xl">
 
                 {/* ── Photos ── */}
-                <div className="space-y-4 pb-6 border-b border-gray-100">
+                <div className="space-y-4 pb-6 border-b border-gray-100 dark:border-white/10">
                     <div>
-                        <h3 className="font-semibold text-sacred-dark">Profile Photos</h3>
-                        <p className="text-[13px] text-gray-500">Upload up to 6 photos. Hover to set primary or remove.</p>
+                        <h3 className="font-semibold text-sacred-dark dark:text-pearl-50">Profile Photos</h3>
+                        <p className="text-[13px] text-gray-500 dark:text-gray-400">Upload up to 6 photos. Hover to set primary or remove.</p>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         {[0,1,2,3,4,5].map(i => {
@@ -592,7 +664,7 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
                                 <div key={i} className="relative aspect-[3/4] rounded-2xl border-2 overflow-hidden group bg-gray-50 border-dashed border-gray-200">
                                     {ph ? (
                                         <>
-                                            <img src={ph.url} alt="" className="w-full h-full object-cover" />
+                                            <img src={resolvePhotoUrl(ph.url)} alt="" className="w-full h-full object-cover" />
                                             {ph.isPrimary && <div className="absolute top-2 left-2 bg-gold-500 text-white text-[10px] font-bold uppercase px-2 py-1 rounded-full">Primary</div>}
                                             <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
                                                 {!ph.isPrimary && <button onClick={() => makePrimary(ph.id)} className="px-3 py-1.5 bg-white/20 text-white rounded-full text-xs font-medium hover:bg-white/40 transition-colors">Make Primary</button>}
@@ -705,11 +777,11 @@ function ProfileForm({ profile, setProfile, loading, userId }: {
                 </Field>
 
                 {/* ── Professional Details ── */}
-                <div className="space-y-5 pt-4 border-t border-gray-100">
+                <div className="space-y-5 pt-4 border-t border-gray-100 dark:border-white/10">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
-                            <h3 className="font-semibold text-sacred-dark">Professional Details</h3>
-                            <p className="text-[13px] text-gray-500">Your career background.</p>
+                            <h3 className="font-semibold text-sacred-dark dark:text-pearl-50">Professional Details</h3>
+                            <p className="text-[13px] text-gray-500 dark:text-gray-400">Your career background.</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             {/* Instagram */}
@@ -772,20 +844,20 @@ function PreferencesSettings({ preferences, setPreferences }: { preferences: any
                 <div className="space-y-2">
                     <label className={labelCls}>Preferred Age Range</label>
                     <div className="flex items-center space-x-4">
-                        <input type="number" value={preferences.minAge ?? 21} onChange={e => up('minAge', parseInt(e.target.value))} className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
-                        <span className="text-gray-400">to</span>
-                        <input type="number" value={preferences.maxAge ?? 40} onChange={e => up('maxAge', parseInt(e.target.value))} className="w-24 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-[15px] outline-none focus:ring-2 focus:ring-gold-400/50" />
+                        <input type="number" value={preferences.minAge ?? 21} onChange={e => up('minAge', parseInt(e.target.value))} className="w-24 bg-gray-50 dark:bg-sacred-midnight/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-center text-[15px] text-gray-800 dark:text-pearl-50 outline-none focus:ring-2 focus:ring-gold-400/50" />
+                        <span className="text-gray-400 dark:text-gray-400">to</span>
+                        <input type="number" value={preferences.maxAge ?? 40} onChange={e => up('maxAge', parseInt(e.target.value))} className="w-24 bg-gray-50 dark:bg-sacred-midnight/40 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-center text-[15px] text-gray-800 dark:text-pearl-50 outline-none focus:ring-2 focus:ring-gold-400/50" />
                     </div>
                 </div>
                 {[
                     { label: 'Orthodox Bridge (Traditional Values)', field: 'orthodoxBridgeRequired', desc: 'Only match with users prioritizing traditional church teachings.' },
                     { label: 'Strict Endogamy (Knanaya)', field: 'strictKnanayaRequired', desc: 'Constrain matches strictly within the Knanaya Catholic community.' },
                 ].map(item => (
-                    <label key={item.label} className="flex items-start space-x-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+                    <label key={item.label} className="flex items-start space-x-3 p-4 border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
                         <input type="checkbox" checked={preferences[item.field] ?? false} onChange={e => up(item.field, e.target.checked)} className="mt-1 w-4 h-4 accent-gold-600" />
                         <div>
-                            <span className="block font-medium text-sacred-dark text-[15px]">{item.label}</span>
-                            <span className="text-[13px] text-gray-500">{item.desc}</span>
+                            <span className="block font-medium text-sacred-dark dark:text-pearl-50 text-[15px]">{item.label}</span>
+                            <span className="text-[13px] text-gray-500 dark:text-gray-400">{item.desc}</span>
                         </div>
                     </label>
                 ))}
@@ -807,13 +879,13 @@ function PreferencesSettings({ preferences, setPreferences }: { preferences: any
                         // Actually, the prompt says "1 to 10 scale" was suggested. Let's make the slider 0 to 10.
                         const sliderVal = Math.round(val / 10);
                         return (
-                            <div key={pillar.key} className="p-4 border border-gray-100 rounded-xl bg-gray-50/30">
+                            <div key={pillar.key} className="p-4 border border-gray-100 dark:border-white/10 rounded-xl bg-gray-50/30 dark:bg-white/5">
                                 <div className="flex justify-between items-start mb-2">
                                     <div>
-                                        <h3 className="font-medium text-sacred-dark">{pillar.label}</h3>
-                                        <p className="text-[12px] text-gray-500">{pillar.desc}</p>
+                                        <h3 className="font-medium text-sacred-dark dark:text-pearl-50">{pillar.label}</h3>
+                                        <p className="text-[12px] text-gray-500 dark:text-gray-400">{pillar.desc}</p>
                                     </div>
-                                    <span className="font-bold text-gold-600 w-8 text-right">{sliderVal}</span>
+                                    <span className="font-bold text-gold-600 dark:text-gold-400 w-8 text-right">{sliderVal}</span>
                                 </div>
                                 <input 
                                     type="range" min="0" max="10" step="1" 
@@ -821,7 +893,7 @@ function PreferencesSettings({ preferences, setPreferences }: { preferences: any
                                     onChange={e => up(pillar.key, parseInt(e.target.value) * 10)} 
                                     className="w-full accent-gold-500" 
                                 />
-                                <div className="flex justify-between text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-wider">
+                                <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase font-bold tracking-wider">
                                     <span>Not Important</span>
                                     <span>Very Important</span>
                                 </div>
@@ -848,6 +920,54 @@ function PrivacySettings({ userData, setUserData, showToast }: {
     const [ghostEnabled, setGhostEnabled] = useState<boolean>(false);
     const [togglingPhoto, setTogglingPhoto] = useState(false);
     const [togglingGhost, setTogglingGhost] = useState(false);
+
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentPassword) {
+            showToast('error', 'Please enter your current password.');
+            return;
+        }
+        if (newPassword.length < 8) {
+            showToast('error', 'New password must be at least 8 characters long.');
+            return;
+        }
+        if (newPassword !== confirmNewPassword) {
+            showToast('error', 'New password confirmation does not match.');
+            return;
+        }
+
+        setIsUpdatingPassword(true);
+        try {
+            const res = await fetch(`${API}/auth/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': uid,
+                    'x-user-role': localStorage.getItem('userRole') || 'candidate',
+                },
+                body: JSON.stringify({ currentPassword, newPassword }),
+            });
+
+            if (res.ok) {
+                showToast('success', 'Password updated successfully.');
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast('error', err.error || 'Failed to update password.');
+            }
+        } catch (err) {
+            showToast('error', 'Network error. Please try again.');
+        } finally {
+            setIsUpdatingPassword(false);
+        }
+    };
 
     // Sync from parent userData when it arrives (or changes)
     useEffect(() => {
@@ -929,28 +1049,28 @@ function PrivacySettings({ userData, setUserData, showToast }: {
             <div className="space-y-5 max-w-2xl mt-8">
 
                 {/* Account ID */}
-                <div className="p-5 rounded-2xl border border-gold-200/60 bg-gold-50/50">
-                    <h3 className="font-semibold text-sacred-dark mb-1">🔑 Your Account ID</h3>
-                    <p className="text-[13px] text-gray-500 mb-3">Share with a parent to link their account to your Kitchen Table.</p>
+                <div className="p-5 rounded-2xl border border-gold-200/60 dark:border-gold-500/20 bg-gold-50/50 dark:bg-gold-950/20">
+                    <h3 className="font-semibold text-sacred-dark dark:text-pearl-50 mb-1">🔑 Your Account ID</h3>
+                    <p className="text-[13px] text-gray-500 dark:text-gray-400 mb-3">Share with a parent to link their account to your Kitchen Table.</p>
                     <div className="flex items-center gap-3">
-                        <code className="flex-1 bg-white border border-gold-200 rounded-xl px-4 py-2.5 text-[13px] text-sacred-dark font-mono truncate select-all">{uid || 'Not logged in'}</code>
-                        <button onClick={() => navigator.clipboard.writeText(uid)} className="px-4 py-2.5 rounded-xl text-[13px] font-medium border bg-white border-gold-200 text-gold-700 hover:bg-gold-50 transition-all">Copy</button>
+                        <code className="flex-1 bg-white dark:bg-sacred-midnight/60 border border-gold-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-[13px] text-sacred-dark dark:text-pearl-50 font-mono truncate select-all">{uid || 'Not logged in'}</code>
+                        <button onClick={() => navigator.clipboard.writeText(uid)} className="px-4 py-2.5 rounded-xl text-[13px] font-medium border bg-white dark:bg-sacred-midnight/60 border-gold-200 dark:border-white/10 text-gold-700 dark:text-gold-400 hover:bg-gold-50 dark:hover:bg-gold-950/30 transition-all">Copy</button>
                     </div>
                 </div>
 
                 {/* Photo Visibility Toggle */}
                 <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
-                    photoVisible ? 'bg-emerald-50/60 border-emerald-200' : 'bg-gray-50/60 border-gray-200'
+                    photoVisible ? 'bg-emerald-50/60 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/40' : 'bg-gray-50/60 dark:bg-white/5 border-gray-200 dark:border-white/10'
                 }`}>
                     <div className="flex items-center space-x-4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                            photoVisible ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'
+                            photoVisible ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 dark:bg-white/10 text-gray-400'
                         }`}>
                             <EyeOff className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-medium text-sacred-dark">Photo Visibility in Match Feed</h3>
-                            <p className="text-[13px] text-gray-500">
+                            <h3 className="font-medium text-sacred-dark dark:text-pearl-50">Photo Visibility in Match Feed</h3>
+                            <p className="text-[13px] text-gray-500 dark:text-gray-400">
                                 {photoVisible
                                     ? 'Your profile photo is visible to all candidates in their discovery feed.'
                                     : 'Your photo is blurred until a mutual match is confirmed.'}
@@ -975,17 +1095,17 @@ function PrivacySettings({ userData, setUserData, showToast }: {
 
                 {/* Ghost Mode Toggle */}
                 <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 ${
-                    ghostEnabled ? 'bg-indigo-50/60 border-indigo-200' : 'bg-gray-50/60 border-gray-200'
+                    ghostEnabled ? 'bg-indigo-50/60 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700/40' : 'bg-gray-50/60 dark:bg-white/5 border-gray-200 dark:border-white/10'
                 }`}>
                     <div className="flex items-center space-x-4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                            ghostEnabled ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'
+                            ghostEnabled ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-white/10 text-gray-500'
                         }`}>
                             <EyeOff className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-medium text-sacred-dark">Ghost Mode</h3>
-                            <p className="text-[13px] text-gray-500">
+                            <h3 className="font-medium text-sacred-dark dark:text-pearl-50">Ghost Mode</h3>
+                            <p className="text-[13px] text-gray-500 dark:text-gray-400">
                                 {ghostEnabled
                                     ? 'You are hidden from all discovery feeds.'
                                     : 'Your profile is visible in discovery feeds.'}
@@ -1009,14 +1129,39 @@ function PrivacySettings({ userData, setUserData, showToast }: {
                 </div>
 
                 {/* Change Password */}
-                <div className="pt-4 border-t border-gray-100">
-                    <h3 className="font-medium text-sacred-dark mb-4">Update Password</h3>
+                <form onSubmit={handleUpdatePassword} className="pt-4 border-t border-gray-100 dark:border-white/10 space-y-4">
+                    <h3 className="font-medium text-sacred-dark dark:text-pearl-50">Update Password</h3>
                     <div className="space-y-3">
-                        {['Current Password', 'New Password', 'Confirm New Password'].map(ph => (
-                            <input key={ph} type="password" placeholder={ph} className={inputCls} />
-                        ))}
+                        <input 
+                            type="password" 
+                            placeholder="Current Password" 
+                            className={inputCls} 
+                            value={currentPassword}
+                            onChange={e => setCurrentPassword(e.target.value)}
+                        />
+                        <input 
+                            type="password" 
+                            placeholder="New Password" 
+                            className={inputCls} 
+                            value={newPassword}
+                            onChange={e => setNewPassword(e.target.value)}
+                        />
+                        <input 
+                            type="password" 
+                            placeholder="Confirm New Password" 
+                            className={inputCls} 
+                            value={confirmNewPassword}
+                            onChange={e => setConfirmNewPassword(e.target.value)}
+                        />
                     </div>
-                </div>
+                    <button
+                        type="submit"
+                        disabled={isUpdatingPassword}
+                        className="bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 hover:to-gold-500 text-white px-5 py-2.5 rounded-full font-medium text-[13px] shadow-md transition-all active:scale-95 disabled:opacity-60"
+                    >
+                        {isUpdatingPassword ? 'Updating Password…' : 'Update Password'}
+                    </button>
+                </form>
             </div>
         </div>
     );
@@ -1025,34 +1170,115 @@ function PrivacySettings({ userData, setUserData, showToast }: {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-function NotificationSettings() {
+function NotificationSettings({ userId, showToast }: { userId: string; showToast: (type: 'success' | 'error', message: string) => void }) {
+    const [prefs, setPrefs] = useState<any>({
+        newMatches: true,
+        directMessages: true,
+        familyRecommendations: true,
+        emailEnabled: true,
+        pushEnabled: false,
+        smsEnabled: true,
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!userId) return;
+        const fetchPrefs = async () => {
+            try {
+                const res = await fetch(`${API}/notifications/preferences`, {
+                    headers: apiHeaders(userId),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setPrefs(data);
+                }
+            } catch (err) {
+                console.error('Error fetching notification preferences:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPrefs();
+    }, [userId]);
+
+    const handleToggle = async (key: string) => {
+        const nextVal = !prefs[key];
+        const prevPrefs = { ...prefs };
+        
+        // Optimistic UI update
+        setPrefs((p: any) => ({ ...p, [key]: nextVal }));
+
+        try {
+            const res = await fetch(`${API}/notifications/preferences`, {
+                method: 'PUT',
+                headers: apiHeaders(userId),
+                body: JSON.stringify({ [key]: nextVal }),
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setPrefs(updated);
+                showToast('success', 'Notification preferences updated.');
+            } else {
+                setPrefs(prevPrefs);
+                showToast('error', 'Failed to update preferences.');
+            }
+        } catch (err) {
+            setPrefs(prevPrefs);
+            showToast('error', 'Network error updating preferences.');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="py-20 flex flex-col items-center gap-3 text-gray-400">
+                <div className="w-8 h-8 rounded-full border-4 border-gold-200 border-t-gold-500 animate-spin" />
+                <p className="text-sm">Loading notification settings…</p>
+            </div>
+        );
+    }
+
     const toggles = [
-        { label: 'New Matches', desc: 'Get notified when a highly compatible profile joins.' },
-        { label: 'Direct Messages', desc: 'Alert me immediately when I receive a message.' },
-        { label: 'Family Recommendations', desc: 'When your assigned family scouts recommend a profile.' },
+        { key: 'newMatches', label: 'New Matches', desc: 'Get notified when a highly compatible profile joins.' },
+        { key: 'directMessages', label: 'Direct Messages', desc: 'Alert me immediately when I receive a message.' },
+        { key: 'familyRecommendations', label: 'Family Recommendations', desc: 'When your assigned family scouts recommend a profile.' },
     ];
+
     return (
         <div className="space-y-8">
             <SectionHeader title="Notifications" desc="Decide how we communicate with you." />
             <div className="space-y-6 max-w-2xl mt-8">
                 {toggles.map(t => (
-                    <div key={t.label} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl">
+                    <div key={t.key} className="flex items-center justify-between p-4 border border-gray-100 dark:border-white/10 rounded-xl bg-white/40 dark:bg-white/5">
                         <div>
-                            <h3 className="font-medium text-sacred-dark text-[15px]">{t.label}</h3>
-                            <p className="text-[13px] text-gray-500">{t.desc}</p>
+                            <h3 className="font-medium text-sacred-dark dark:text-pearl-50 text-[15px]">{t.label}</h3>
+                            <p className="text-[13px] text-gray-500 dark:text-gray-400">{t.desc}</p>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" defaultChecked className="sr-only peer" />
+                            <input 
+                                type="checkbox" 
+                                checked={prefs[t.key] ?? false} 
+                                onChange={() => handleToggle(t.key)}
+                                className="sr-only peer" 
+                            />
                             <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gold-500" />
                         </label>
                     </div>
                 ))}
-                <div className="pt-8 border-t border-gray-100 space-y-4">
-                    <h3 className="font-medium text-sacred-dark">Communication Channels</h3>
-                    {['Email Notifications', 'Push Notifications (Browser)', 'SMS Alerts (Critical only)'].map((ch, i) => (
-                        <label key={ch} className="flex items-center space-x-3 cursor-pointer">
-                            <input type="checkbox" defaultChecked={i !== 1} className="w-4 h-4 accent-gold-600" />
-                            <span className="text-[14px] text-gray-700">{ch}</span>
+                <div className="pt-8 border-t border-gray-100 dark:border-white/10 space-y-4">
+                    <h3 className="font-medium text-sacred-dark dark:text-pearl-50">Communication Channels</h3>
+                    {[
+                        { key: 'emailEnabled', label: 'Email Notifications' },
+                        { key: 'pushEnabled', label: 'Push Notifications (Browser)' },
+                        { key: 'smsEnabled', label: 'SMS Alerts (Critical only)' },
+                    ].map((ch) => (
+                        <label key={ch.key} className="flex items-center space-x-3 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={prefs[ch.key] ?? false} 
+                                onChange={() => handleToggle(ch.key)}
+                                className="w-4 h-4 accent-gold-600 rounded" 
+                            />
+                            <span className="text-[14px] text-gray-700 dark:text-gray-200">{ch.label}</span>
                         </label>
                     ))}
                 </div>
@@ -1098,6 +1324,43 @@ function VerificationForm({ userData, setUserData, showToast }: {
     useEffect(() => {
         fetchStatus();
     }, [fetchStatus]);
+
+    const handleAdminApprove = async (docId: string, status: 'APPROVED' | 'REJECTED') => {
+        if (!userId) return;
+        try {
+            const verifyRes = await fetch(`${API}/verification/admin-verify`, {
+                method: 'POST',
+                headers: apiHeaders(userId),
+                body: JSON.stringify({
+                    documentId: docId,
+                    status
+                })
+            });
+
+            if (verifyRes.ok) {
+                const resData = await verifyRes.json();
+                const nowVerified = resData.isVerified;
+                showToast('success', `Document status updated to ${status}.`);
+                setUserData((prev: any) => ({ ...prev, isVerified: nowVerified }));
+                // Update local storage so session stays synced
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    try {
+                        const parsed = JSON.parse(storedUser);
+                        parsed.isVerified = nowVerified;
+                        localStorage.setItem('user', JSON.stringify(parsed));
+                    } catch {}
+                }
+                await fetchStatus();
+            } else {
+                const err = await verifyRes.json();
+                showToast('error', `Action failed: ${err.error || 'Unknown error'}`);
+            }
+        } catch (err) {
+            console.error('Error in admin action:', err);
+            showToast('error', 'Network error updating document status.');
+        }
+    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1290,8 +1553,8 @@ function VerificationForm({ userData, setUserData, showToast }: {
 
                 {/* Upload Form */}
                 {!isVerified && (
-                    <div className="p-6 rounded-3xl border border-gray-100 bg-white shadow-sm space-y-6">
-                        <h3 className="font-semibold text-sacred-dark text-lg">Upload Documents</h3>
+                    <div className="p-6 rounded-3xl border border-gray-100 dark:border-white/10 bg-white dark:bg-sacred-midnight/40 shadow-sm space-y-6">
+                        <h3 className="font-semibold text-sacred-dark dark:text-pearl-50 text-lg">Upload Documents</h3>
                         
                         {/* Selector */}
                         <div className="grid grid-cols-2 gap-4">
@@ -1300,8 +1563,8 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                 onClick={() => setDocumentType('baptism_certificate')}
                                 className={`p-4 rounded-xl border-2 text-center transition-all ${
                                     documentType === 'baptism_certificate'
-                                        ? 'border-gold-400 bg-gold-50/20 text-gold-800 font-semibold shadow-sm'
-                                        : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                                        ? 'border-gold-400 bg-gold-50/20 dark:bg-gold-950/30 text-gold-800 dark:text-gold-300 font-semibold shadow-sm'
+                                        : 'border-gray-100 dark:border-white/10 hover:border-gray-200 dark:hover:border-white/20 text-gray-600 dark:text-gray-400'
                                 }`}
                             >
                                 <Church className="w-5 h-5 mx-auto mb-2 opacity-80" />
@@ -1312,8 +1575,8 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                 onClick={() => setDocumentType('government_id')}
                                 className={`p-4 rounded-xl border-2 text-center transition-all ${
                                     documentType === 'government_id'
-                                        ? 'border-gold-400 bg-gold-50/20 text-gold-800 font-semibold shadow-sm'
-                                        : 'border-gray-100 hover:border-gray-200 text-gray-600'
+                                        ? 'border-gold-400 bg-gold-50/20 dark:bg-gold-950/30 text-gold-800 dark:text-gold-300 font-semibold shadow-sm'
+                                        : 'border-gray-100 dark:border-white/10 hover:border-gray-200 dark:hover:border-white/20 text-gray-600 dark:text-gray-400'
                                 }`}
                             >
                                 <Shield className="w-5 h-5 mx-auto mb-2 opacity-80" />
@@ -1322,7 +1585,7 @@ function VerificationForm({ userData, setUserData, showToast }: {
                         </div>
 
                         {/* File Inputs */}
-                        <div className="relative border-2 border-dashed border-gray-200 rounded-2xl p-8 hover:bg-gray-50/50 hover:border-gold-300 transition-colors flex flex-col items-center justify-center text-center cursor-pointer">
+                        <div className="relative border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-8 hover:bg-gray-50/50 dark:hover:bg-white/5 hover:border-gold-300 dark:hover:border-gold-500/40 transition-colors flex flex-col items-center justify-center text-center cursor-pointer">
                             <input
                                 type="file"
                                 accept="image/*,application/pdf"
@@ -1330,13 +1593,13 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                 onChange={handleFileUpload}
                                 disabled={isUploading}
                             />
-                            <div className="p-3 rounded-full bg-gold-50 text-gold-600 mb-3">
+                            <div className="p-3 rounded-full bg-gold-50 dark:bg-gold-950/40 text-gold-600 dark:text-gold-400 mb-3">
                                 <Upload className="w-6 h-6" />
                             </div>
-                            <p className="text-[14px] text-gray-700 font-semibold mb-1">
+                            <p className="text-[14px] text-gray-700 dark:text-gray-200 font-semibold mb-1">
                                 {isUploading ? 'Uploading file…' : 'Click to select or drag document here'}
                             </p>
-                            <p className="text-[11px] text-gray-400 uppercase tracking-widest">
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                                 PDF, PNG, JPG up to 10MB
                             </p>
                         </div>
@@ -1346,26 +1609,26 @@ function VerificationForm({ userData, setUserData, showToast }: {
                 {/* Upload History */}
                 {documents.length > 0 && (
                     <div className="space-y-4">
-                        <h3 className="font-semibold text-sacred-dark text-lg">Document History</h3>
-                        <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white/50 backdrop-blur-sm">
+                        <h3 className="font-semibold text-sacred-dark dark:text-pearl-50 text-lg">Document History</h3>
+                        <div className="border border-gray-100 dark:border-white/10 rounded-2xl overflow-hidden bg-white/50 dark:bg-sacred-midnight/40 backdrop-blur-sm">
                             <table className="w-full text-left text-sm border-collapse">
                                 <thead>
-                                    <tr className="bg-gray-50/80 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
+                                    <tr className="bg-gray-50/80 dark:bg-white/5 border-b border-gray-100 dark:border-white/10 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[11px]">
                                         <th className="px-6 py-4">Document Type</th>
                                         <th className="px-6 py-4">Uploaded</th>
-                                        <th className="px-6 py-4 text-right">Status</th>
+                                        <th className="px-6 py-4 text-right">Status & Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {documents.map((doc) => (
-                                        <tr key={doc.id} className="border-b border-gray-100 last:border-0 hover:bg-white/40 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-sacred-dark flex items-center gap-2">
+                                        <tr key={doc.id} className="border-b border-gray-100 dark:border-white/10 last:border-0 hover:bg-white/40 dark:hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-sacred-dark dark:text-pearl-50 flex items-center gap-2">
                                                 <FileText className="w-4 h-4 text-gold-500 shrink-0" />
                                                 <span className="capitalize text-[13px]">
                                                     {doc.documentType.replace('_', ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-500 text-[13px]">
+                                            <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-[13px]">
                                                 {new Date(doc.createdAt).toLocaleDateString(undefined, {
                                                     year: 'numeric',
                                                     month: 'short',
@@ -1373,9 +1636,27 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                                 })}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusStyles(doc.status)}`}>
-                                                    {doc.status}
-                                                </span>
+                                                <div className="flex items-center justify-end gap-2.5">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusStyles(doc.status)}`}>
+                                                        {doc.status}
+                                                    </span>
+                                                    {doc.status === 'PENDING' && (
+                                                        <div className="flex gap-1.5">
+                                                            <button
+                                                                onClick={() => handleAdminApprove(doc.id, 'APPROVED')}
+                                                                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleAdminApprove(doc.id, 'REJECTED')}
+                                                                className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1393,9 +1674,9 @@ function VerificationForm({ userData, setUserData, showToast }: {
 
 function SectionHeader({ title, desc }: { title: string; desc: string }) {
     return (
-        <div className="relative pb-5 border-b border-gold-100/40">
-            <h2 className="text-2xl font-serif text-sacred-dark mb-1">{title}</h2>
-            <p className="text-sm text-gray-500">{desc}</p>
+        <div className="relative pb-5 border-b border-gold-100/40 dark:border-white/10">
+            <h2 className="text-2xl font-serif text-sacred-dark dark:text-pearl-50 mb-1">{title}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{desc}</p>
             <div className="absolute bottom-[-1px] left-0 w-24 h-[2px] bg-gradient-to-r from-gold-400 to-transparent" />
         </div>
     );

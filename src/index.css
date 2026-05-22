@@ -25,6 +25,16 @@
   h6 {
     @apply font-serif tracking-tight font-medium;
   }
+
+  /* Force dark text for light inputs/selects/textareas inside dark mode, unless they specify a dark text color */
+  .dark input:not([type="checkbox"]):not([type="radio"]).bg-gray-50:not([class*="dark:text-"]),
+  .dark select.bg-gray-50:not([class*="dark:text-"]),
+  .dark textarea.bg-gray-50:not([class*="dark:text-"]),
+  .dark .bg-white input:not([type="checkbox"]):not([type="radio"]):not([class*="dark:text-"]),
+  .dark .bg-white select:not([class*="dark:text-"]),
+  .dark .bg-white textarea:not([class*="dark:text-"]) {
+    color: #1f2937 !important;
+  }
 }
 
 @layer utilities {

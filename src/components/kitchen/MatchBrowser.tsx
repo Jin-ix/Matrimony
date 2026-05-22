@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ShieldCheck, MapPin, Loader2, ChevronRight } from 'lucide-react';
+import { resolvePhotoUrl } from '../../utils/photo';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -128,7 +129,7 @@ export default function MatchBrowser({ onClose }: { onClose: () => void }) {
                 >
                     <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden shadow-inner">
                         <img 
-                            src={match.image || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80'} 
+                            src={resolvePhotoUrl(match.image) || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80'} 
                             alt={match.name}
                             className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                         />

@@ -2,6 +2,7 @@ import { MapPin, ShieldCheck, Heart, BookOpen, Home, Sparkles } from 'lucide-rea
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import RadialChart from '../ui/RadialChart';
+import { resolvePhotoUrl } from '../../utils/photo';
 
 export default function SharedProfileView({ user, compatibility, loading = false, candidateId }: { user: any, compatibility?: any, loading?: boolean, candidateId?: string }) {
     if (loading) {
@@ -62,7 +63,8 @@ export default function SharedProfileView({ user, compatibility, loading = false
     }, [user?.id, candidateId]);
 
     const { profile, photos } = user;
-    const primaryPhoto = photos?.find((p: any) => p.isPrimary)?.url || photos?.[0]?.url || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
+    const rawPhoto = photos?.find((p: any) => p.isPrimary)?.url || photos?.[0]?.url;
+    const primaryPhoto = resolvePhotoUrl(rawPhoto) || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
 
     return (
         <div className="h-full w-full overflow-y-auto bg-sacred-offwhite dark:bg-sacred-midnight p-6 no-scrollbar relative">

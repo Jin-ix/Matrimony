@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, ArrowLeft, Loader2, Link, Sparkles, CheckCircle2, X, MoreVertical } from 'lucide-react';
 import TopNavigation from '../components/discovery/TopNavigation';
+import { resolvePhotoUrl } from '../utils/photo';
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProfileSummary {
     id: string;
@@ -110,34 +111,52 @@ export default function Connections() {
         const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
         try {
+            const signal = AbortSignal.timeout(10000);
             const [convRes, sentRes, receivedRes] = await Promise.all([
-                fetch(`${API}/conversations`, { headers }),
-                fetch(`${API}/interactions/sent`, { headers }),
-                fetch(`${API}/interactions/received`, { headers }),
+                fetch(`${API}/conversations`, { headers, signal }),
+                fetch(`${API}/interactions/sent`, { headers, signal }),
+                fetch(`${API}/interactions/received`, { headers, signal }),
             ]);
 
-            if (!convRes.ok || !sentRes.ok || !receivedRes.ok) {
-                throw new Error('Failed to fetch connections from backend');
+            if (!convRes.ok) {
+                const txt = await convRes.text();
+                throw new Error(`Conversations API returned ${convRes.status}: ${txt}`);
+            }
+            if (!sentRes.ok) {
+                const txt = await sentRes.text();
+                throw new Error(`Sent API returned ${sentRes.status}: ${txt}`);
+            }
+            if (!receivedRes.ok) {
+                const txt = await receivedRes.text();
+                throw new Error(`Received API returned ${receivedRes.status}: ${txt}`);
             }
 
-            const [convsData, sentData, receivedData] = await Promise.all([
-                convRes.json(),
-                sentRes.json(),
-                receivedRes.json(),
-            ]);
+            const convsData = await convRes.json();
+            const sentData = await sentRes.json();
+            const receivedData = await receivedRes.json();
+
+            if (!Array.isArray(convsData)) {
+                throw new Error(`Conversations data is not an array (type: ${typeof convsData})`);
+            }
+            if (!Array.isArray(sentData)) {
+                throw new Error(`Sent data is not an array (type: ${typeof sentData})`);
+            }
+            if (!Array.isArray(receivedData)) {
+                throw new Error(`Received data is not an array (type: ${typeof receivedData})`);
+            }
 
             const mutualUserIds = new Set<string>();
             const otherToConvMap: Record<string, string> = {};
 
             convsData.forEach((conv: any) => {
-                if (conv.matchUser?.id) {
+                if (conv && conv.matchUser?.id) {
                     mutualUserIds.add(conv.matchUser.id);
                     otherToConvMap[conv.matchUser.id] = conv.id;
                 }
             });
 
             const getAvatar = (photoUrl?: string, gender?: string) => {
-                if (photoUrl) return photoUrl;
+                if (photoUrl) return resolvePhotoUrl(photoUrl);
                 return gender === 'female'
                     ? 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80'
                     : 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80';
@@ -188,7 +207,7 @@ export default function Connections() {
 
             // 3) Build SHORTLISTED
             const builtSent: SentItem[] = sentData
-                .filter((r: any) => !mutualUserIds.has(r.toUserId))
+                .filter((r: any) => r && !mutualUserIds.has(r.toUserId))
                 .map((r: any) => {
                     const recipient = r.toUser;
                     const profile = recipient?.profile;
@@ -216,9 +235,9 @@ export default function Connections() {
             setMatches(builtMatches);
             setReceived(builtReceived);
             setShortlisted(builtSent);
-        } catch (err) {
+        } catch (err: any) {
             console.error('[Connections] fetch failed', err);
-            showToast('error', 'Failed to retrieve connections from server.');
+            showToast('error', `Failed: ${err.message || err}`);
         } finally {
             setLoading(false);
         }

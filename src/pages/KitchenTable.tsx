@@ -9,6 +9,7 @@ import { io, type Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
 import SharedProfileView from '../components/kitchen/SharedProfileView';
 import MatchBrowser from '../components/kitchen/MatchBrowser';
+import { resolvePhotoUrl } from '../utils/photo';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
@@ -247,7 +248,7 @@ export default function KitchenTable() {
                 
                 const { data: photoData } = await supabase.from('Photo').select('url').eq('userId', profileTarget).eq('isPrimary', true).single();
                 if (photoData?.url) {
-                    setProfileImage(photoData.url);
+                    setProfileImage(resolvePhotoUrl(photoData.url));
                 } else if (prof?.gender) {
                     setProfileImage(
                         prof.gender === 'male'

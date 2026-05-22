@@ -3,6 +3,7 @@ import { Send, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../../lib/supabase';
+import AIIcebreakerBanner from './AIIcebreakerBanner';
 
 interface Message {
     id: string;
@@ -17,28 +18,17 @@ export default function SecureChatFeed({
     matchUser,
     chatId,
     initialMessages = [],
-    selectedIcebreaker = '',
-    onClearIcebreaker,
 }: {
     currentUser: { id: string; name: string };
     matchUser: { id: string; name: string; avatar: string };
     chatId: string;
     initialMessages?: Message[];
-    selectedIcebreaker?: string;
-    onClearIcebreaker?: () => void;
 }) {
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
     const [moderationWarning, setModerationWarning] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const socketRef = useRef<Socket | null>(null);
-
-    useEffect(() => {
-        if (selectedIcebreaker) {
-            setInput(selectedIcebreaker);
-            onClearIcebreaker?.();
-        }
-    }, [selectedIcebreaker, onClearIcebreaker]);
 
     useEffect(() => {
         setMessages(initialMessages);
@@ -183,7 +173,7 @@ export default function SecureChatFeed({
     };
 
     return (
-        <div className="flex h-full w-full flex-col bg-sacred-offwhite">
+        <div className="flex flex-1 min-h-0 w-full flex-col bg-sacred-offwhite">
             {/* Moderation Shield Banner */}
             <AnimatePresence>
                 {moderationWarning && (
@@ -199,39 +189,50 @@ export default function SecureChatFeed({
                 )}
             </AnimatePresence>
 
-            {/* Message Feed */}
-            <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
-                <AnimatePresence>
-                    {messages.map((msg) => {
-                        const isMine = msg.senderId === currentUser.id;
-                        return (
-                            <motion.div
-                                key={msg.id}
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}
-                            >
-                                {!isMine && (
-                                    <img src={matchUser.avatar} alt="Avatar" className="h-8 w-8 rounded-full border border-gold-200 mr-3 mt-1 object-cover shadow-sm bg-white" />
-                                )}
-                                <div className="flex flex-col items-start max-w-[70%]">
-                                    <div
-                                        className={`rounded-[20px] px-5 py-3.5 text-[15px] leading-relaxed shadow-sm font-sans ${isMine
-                                            ? 'bg-sacred-dark text-white rounded-tr-sm'
-                                            : 'bg-white border border-gold-100/50 text-sacred-dark rounded-tl-sm'
-                                            } ${msg.flagged ? 'border border-yellow-400 bg-yellow-50/10' : ''}`}
-                                    >
-                                        {msg.text}
+            {/* Scrollable Feed */}
+            <div className="flex-1 overflow-y-auto">
+                {/* Icebreaker banner — always present, auto-collapses when chat has messages */}
+                <AIIcebreakerBanner
+                    matchName={matchUser.name}
+                    matchUserId={matchUser.id}
+                    onSelectIcebreaker={(text) => setInput(text)}
+                    initialCollapsed={messages.length > 0}
+                />
+
+                {/* Messages */}
+                <div className="px-6 py-4 space-y-6">
+                    <AnimatePresence>
+                        {messages.map((msg) => {
+                            const isMine = msg.senderId === currentUser.id;
+                            return (
+                                <motion.div
+                                    key={msg.id}
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}
+                                >
+                                    {!isMine && (
+                                        <img src={matchUser.avatar} alt="Avatar" className="h-8 w-8 rounded-full border border-gold-200 mr-3 mt-1 object-cover shadow-sm bg-white" />
+                                    )}
+                                    <div className="flex flex-col items-start max-w-[70%]">
+                                        <div
+                                            className={`rounded-[20px] px-5 py-3.5 text-[15px] leading-relaxed shadow-sm font-sans ${isMine
+                                                ? 'bg-sacred-dark text-white rounded-tr-sm'
+                                                : 'bg-white border border-gold-100/50 text-sacred-dark rounded-tl-sm'
+                                                } ${msg.flagged ? 'border border-yellow-400 bg-yellow-50/10' : ''}`}
+                                        >
+                                            {msg.text}
+                                        </div>
+                                        <span className={`text-[10px] text-gray-400 mt-1 font-medium tracking-wide ${isMine ? 'self-end' : 'self-start'}`}>
+                                            {msg.timestamp}
+                                        </span>
                                     </div>
-                                    <span className={`text-[10px] text-gray-400 mt-1 font-medium tracking-wide ${isMine ? 'self-end' : 'self-start'}`}>
-                                        {msg.timestamp}
-                                    </span>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </AnimatePresence>
-                <div ref={messagesEndRef} />
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                    <div ref={messagesEndRef} />
+                </div>
             </div>
 
             {/* Input Area */}
