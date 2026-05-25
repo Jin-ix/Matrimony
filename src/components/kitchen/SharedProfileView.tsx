@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import RadialChart from '../ui/RadialChart';
 import { resolvePhotoUrl } from '../../utils/photo';
+import { API_URL as API } from '../../utils/api';
 
 export default function SharedProfileView({ user, compatibility, loading = false, candidateId }: { user: any, compatibility?: any, loading?: boolean, candidateId?: string }) {
     if (loading) {
@@ -47,7 +48,6 @@ export default function SharedProfileView({ user, compatibility, loading = false
                     headers['x-user-role'] = myRole;
                 }
 
-                const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
                 const res = await fetch(`${API}/conversations`, { headers });
                 if (!res.ok) throw new Error('Failed to fetch conversations');
                 

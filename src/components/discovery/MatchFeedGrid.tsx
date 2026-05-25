@@ -5,6 +5,7 @@ import MatchCard, { type MatchProfile } from './MatchCard';
 import { Heart } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { resolvePhotoUrl } from '../../utils/photo';
+import { API_URL as API } from '../../utils/api';
 
 import type { AdvancedFilters } from './AdvancedFiltersModal';
 
@@ -159,7 +160,6 @@ export default function MatchFeedGrid({
     const [loading, setLoading] = useState(true);
     const [myProfile, setMyProfile] = useState<any>(null);
     const navigate = useNavigate();
-    const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
     useEffect(() => {
         const fetchProfiles = async () => {

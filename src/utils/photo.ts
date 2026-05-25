@@ -1,4 +1,4 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { BACKEND_URL } from './api';
 
 export function resolvePhotoUrl(url: string | null | undefined): string {
     if (!url) return '';

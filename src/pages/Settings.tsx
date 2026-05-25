@@ -10,10 +10,11 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resolvePhotoUrl } from '../utils/photo';
 import { useTheme } from '../hooks/useTheme';
+import { API_URL as API } from '../utils/api';
 
 type SettingsTab = 'profile' | 'preferences' | 'privacy' | 'notifications' | 'verification';
 
-const API = import.meta.env.VITE_API_URL || `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api`;
+
 
 const RITE_DISPLAY: Record<string, string> = {
     SYRO_MALABAR: 'Syro-Malabar',

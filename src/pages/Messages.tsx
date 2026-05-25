@@ -5,6 +5,7 @@ import SecureChatFeed from '../components/messages/SecureChatFeed';
 import DecisionActionSheet from '../components/messages/DecisionActionSheet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { resolvePhotoUrl } from '../utils/photo';
+import { API_URL as API } from '../utils/api';
 
 import { supabase } from '../lib/supabase';
 
@@ -28,7 +29,6 @@ export default function Messages() {
     const [matchUser, setMatchUser] = useState<MatchUser | null>(null);
     const [initialMessages, setInitialMessages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
     const currentUserStr = localStorage.getItem('user');
     const currentUser = currentUserStr ? JSON.parse(currentUserStr) : { id: localStorage.getItem('userId'), name: 'Me' };

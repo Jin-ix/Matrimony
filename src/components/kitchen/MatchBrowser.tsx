@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, MapPin, Loader2, ChevronRight } from 'lucide-react';
 import { resolvePhotoUrl } from '../../utils/photo';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { API_URL as API } from '../../utils/api';
 
 export default function MatchBrowser({ onClose }: { onClose: () => void }) {
     const [matches, setMatches] = useState<any[]>([]);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, ArrowRight, Phone } from 'lucide-react';
+import { API_URL } from '../../utils/api';
 
 interface VerificationModuleProps {
     onVerified: (phoneNumber: string) => void;
@@ -46,7 +47,7 @@ export default function VerificationModule({ onVerified }: VerificationModulePro
 
     const handleLinkedInConnect = () => {
         const userId = localStorage.getItem('userId') || '';
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const apiUrl = API_URL;
         const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
         const popupUrl = `${baseUrl}/api/auth/linkedin?userId=${userId}&popup=true`;
         

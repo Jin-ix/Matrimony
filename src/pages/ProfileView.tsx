@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ShieldAlert, Heart, Send, CheckCircle2, Video, Upload, Sparkles, MessageCircle } from 'lucide-react';
 import { computeIndividualCompatibility, computeFamilyValuesScore, generateAIInsight } from '../utils/scoring';
+import { API_URL as API } from '../utils/api';
 import type { MatchProfile } from '../components/discovery/MatchCard';
 import { supabase } from '../lib/supabase';
 
@@ -17,7 +18,6 @@ export default function ProfileView() {
     const myProfile = location.state?.myProfile as any | undefined;
     
     const [isMatched, setIsMatched] = useState(false);
-    const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
     useEffect(() => {
         const checkMatchStatus = async () => {

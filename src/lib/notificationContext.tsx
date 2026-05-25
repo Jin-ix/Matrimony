@@ -42,8 +42,7 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+import { API_URL as API, SOCKET_URL } from '../utils/api';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const [notifications, setNotifications] = useState<AppNotification[]>([]);

@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, X, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { API_URL as API } from '../../utils/api';
 
 // ─── Typewriter Hook ──────────────────────────────────────────────────────────
 function useTypewriter(text: string, speed = 18, enabled = true) {

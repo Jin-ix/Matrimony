@@ -11,8 +11,7 @@ import SharedProfileView from '../components/kitchen/SharedProfileView';
 import MatchBrowser from '../components/kitchen/MatchBrowser';
 import { resolvePhotoUrl } from '../utils/photo';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+import { API_URL as API, SOCKET_URL } from '../utils/api';
 
 interface ChatMessage {
     id: string;

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, ArrowLeft, Loader2, Link, Sparkles, CheckCircle2, X, MoreVertical } from 'lucide-react';
 import TopNavigation from '../components/discovery/TopNavigation';
 import { resolvePhotoUrl } from '../utils/photo';
+import { API_URL as API } from '../utils/api';
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProfileSummary {
     id: string;
@@ -107,8 +108,6 @@ export default function Connections() {
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (userId) headers['x-user-id'] = userId;
         if (userRole) headers['x-user-role'] = userRole;
-
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
         try {
             const signal = AbortSignal.timeout(10000);
@@ -257,8 +256,6 @@ export default function Connections() {
         if (token) headers['Authorization'] = `Bearer ${token}`;
         headers['x-user-id'] = userId;
 
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
         try {
             const res = await fetch(`${API}/interactions/interest`, {
                 method: 'POST',
@@ -317,8 +314,6 @@ export default function Connections() {
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (userId) headers['x-user-id'] = userId;
 
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
         try {
             const res = await fetch(`${API}/users/block`, {
                 method: 'POST',
@@ -357,8 +352,6 @@ export default function Connections() {
         };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (userId) headers['x-user-id'] = userId;
-
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
         try {
             const res = await fetch(`${API}/users/report`, {

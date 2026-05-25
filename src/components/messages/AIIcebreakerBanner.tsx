@@ -9,7 +9,7 @@ interface AIIcebreakerBannerProps {
     initialCollapsed?: boolean;
 }
 
-const API = import.meta.env.VITE_API_URL || `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api`;
+import { API_URL as API } from '../../utils/api';
 
 // ── Instant client-side fallback generator ────────────────────────────────────
 function generateLocalIcebreakers(matchName: string): string[] {

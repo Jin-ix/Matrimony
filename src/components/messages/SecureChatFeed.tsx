@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../../lib/supabase';
 import AIIcebreakerBanner from './AIIcebreakerBanner';
+import { SOCKET_URL } from '../../utils/api';
 
 interface Message {
     id: string;
@@ -36,7 +37,6 @@ export default function SecureChatFeed({
 
     // Socket.io for backend
     useEffect(() => {
-        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
         const socket = io(`${SOCKET_URL}/chat`, { 
             transports: ['websocket'],
             reconnectionAttempts: 3,
