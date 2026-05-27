@@ -194,7 +194,7 @@ export default function FloatingAIAssistant() {
                         animate="visible"
                         exit="exit"
                         className="w-full sm:w-[370px] pointer-events-auto flex flex-col overflow-hidden rounded-[1.75rem] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.22)] border border-white/60"
-                        style={{ height: isMinimized ? 'auto' : '520px', maxHeight: 'calc(100dvh - 120px)' }}
+                        style={{ height: isMinimized ? 'auto' : '520px', maxHeight: 'min(calc(100vh - 120px), 520px)' }}
                     >
                         {/* ── Header ── */}
                         <div className="flex items-center justify-between bg-gradient-to-r from-stone-950 via-stone-900 to-stone-950 px-5 py-4 shrink-0">

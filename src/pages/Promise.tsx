@@ -268,7 +268,7 @@ function HorizontalScrollSection() {
     const x = useTransform(smoothProgress, [0, 1], ["0%", `${translateXPct}%`]);
 
     return (
-        <section ref={targetRef} className="relative h-[600vh] bg-sacred-dark z-10">
+        <section ref={targetRef} className="relative h-[600vh] bg-sacred-dark z-10 w-full overflow-x-hidden">
             <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center shadow-[-50px_0_100px_rgba(0,0,0,0.8)] border-t border-white/[0.05]">
                 
                 {/* Dynamic Crossfading Backgrounds */}
@@ -313,7 +313,7 @@ function PillarSlide({ pillar, index, total }: { pillar: PromisePillar; index: n
     const isEven = index % 2 === 0;
 
     return (
-        <div style={{ width: `${100 / total}%` }} className="h-full flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 relative overflow-hidden">
+        <div style={{ width: `${100 / total}%` }} className="h-full shrink-0 flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 relative overflow-hidden">
             
             {/* Massive Typography Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
