@@ -290,9 +290,9 @@ function HorizontalScrollSection() {
                 })}
 
                 {/* The Horizontal Track */}
-                <motion.div style={{ x }} className="relative z-10 flex w-[600vw] h-full items-center">
+                <motion.div style={{ x, width: `${pillars.length * 100}%` }} className="relative z-10 flex h-full items-center">
                     {pillars.map((pillar, index) => (
-                        <PillarSlide key={pillar.id} pillar={pillar} index={index} />
+                        <PillarSlide key={pillar.id} pillar={pillar} index={index} total={pillars.length} />
                     ))}
                 </motion.div>
 
@@ -308,12 +308,12 @@ function HorizontalScrollSection() {
     );
 }
 
-function PillarSlide({ pillar, index }: { pillar: PromisePillar; index: number }) {
+function PillarSlide({ pillar, index, total }: { pillar: PromisePillar; index: number; total: number }) {
     const Icon = pillar.icon;
     const isEven = index % 2 === 0;
 
     return (
-        <div className="w-[100vw] h-full flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 relative overflow-hidden">
+        <div style={{ width: `${100 / total}%` }} className="h-full flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 relative overflow-hidden">
             
             {/* Massive Typography Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">

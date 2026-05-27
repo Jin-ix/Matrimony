@@ -184,7 +184,7 @@ export default function FloatingAIAssistant() {
     };
 
     return (
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-[90] flex flex-col items-end gap-3 pointer-events-none">
             <AnimatePresence mode="wait">
                 {isOpen && (
                     <motion.div
@@ -193,8 +193,8 @@ export default function FloatingAIAssistant() {
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="w-[calc(100vw-32px)] sm:w-[370px] flex flex-col overflow-hidden rounded-[1.75rem] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.22)] border border-white/60"
-                        style={{ height: isMinimized ? 'auto' : '520px', maxHeight: 'calc(100vh - 100px)' }}
+                        className="w-full sm:w-[370px] pointer-events-auto flex flex-col overflow-hidden rounded-[1.75rem] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.22)] border border-white/60"
+                        style={{ height: isMinimized ? 'auto' : '520px', maxHeight: 'calc(100dvh - 120px)' }}
                     >
                         {/* ── Header ── */}
                         <div className="flex items-center justify-between bg-gradient-to-r from-stone-950 via-stone-900 to-stone-950 px-5 py-4 shrink-0">
@@ -373,7 +373,7 @@ export default function FloatingAIAssistant() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.93 }}
                 onClick={() => setIsOpen(o => !o)}
-                className="relative w-14 h-14 rounded-full bg-gradient-to-br from-gold-500 to-gold-700 text-white shadow-lg shadow-gold-600/30 border border-gold-400/40 flex items-center justify-center overflow-hidden group"
+                className="relative w-14 h-14 pointer-events-auto rounded-full bg-gradient-to-br from-gold-500 to-gold-700 text-white shadow-lg shadow-gold-600/30 border border-gold-400/40 flex items-center justify-center overflow-hidden group"
                 aria-label="Open Sacred Guide"
             >
                 {/* Shimmer on hover */}
