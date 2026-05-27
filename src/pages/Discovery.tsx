@@ -115,7 +115,7 @@ export default function Discovery() {
                 <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(213,168,75,0.08),transparent_60%)] pointer-events-none" />
 
                 <div className="relative z-10 w-full overflow-hidden pt-8">
-                    <div className="px-6 mx-auto w-full max-w-7xl">
+                    <div className="px-4 sm:px-6 mx-auto w-full max-w-7xl">
                         <WelcomeHubBanner userRole={userRole} userGender={userGender} />
                     </div>
                     <MatchFeedGrid

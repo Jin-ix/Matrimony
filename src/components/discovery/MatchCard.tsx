@@ -73,7 +73,7 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             onClick={() => onClick(profile)}
-            className={`relative h-[480px] w-full cursor-pointer rounded-3xl bg-white dark:bg-sacred-midnight transition-all duration-500 ease-out border-2 ${compatibilityColors[profile.compatibility]} overflow-hidden group ${profile.status === 'passed' ? 'opacity-60 grayscale-[0.5]' : ''}`}
+            className={`relative h-[400px] sm:h-[480px] w-full cursor-pointer rounded-3xl bg-white dark:bg-sacred-midnight transition-all duration-500 ease-out border-2 ${compatibilityColors[profile.compatibility]} overflow-hidden group ${profile.status === 'passed' ? 'opacity-60 grayscale-[0.5]' : ''}`}
         >
             {/* Elegant Inner Ring */}
             <div className="absolute inset-2 border border-gold-400/30 rounded-2xl pointer-events-none z-10 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700" style={{ transform: 'translateZ(20px)' }} />
@@ -128,12 +128,12 @@ export default function MatchCard({ profile, onClick }: MatchCardProps) {
             {/* Deep Match Info */}
             <motion.div
                 layoutId={`info-${profile.id}`}
-                className="absolute bottom-0 left-0 w-full p-6"
+                className="absolute bottom-0 left-0 w-full p-4 sm:p-6"
                 style={{ transform: 'translateZ(50px)' }}
             >
                 <div className="flex items-end justify-between">
                     <div>
-                        <h3 className="font-serif text-3xl font-medium text-white drop-shadow-md flex items-center gap-2">
+                        <h3 className="font-serif text-2xl sm:text-3xl font-medium text-white drop-shadow-md flex items-center gap-2">
                             {photoVisible ? profile.name : '••••••'}, {profile.age}
                             {profile.isVerified && (
                                 <span className="inline-flex items-center text-gold-500 shrink-0 drop-shadow-[0_0_6px_rgba(212,175,55,0.5)]" title="Verified Catholic">

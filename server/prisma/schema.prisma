@@ -145,6 +145,7 @@ model Profile {
   annualIncome       String?
   smoke              Boolean?
   drink              Boolean?
+  religiousOutlook   String?
 
   // Soul DNA & Diaspora Bridge Fields
   videoIcebreakerUrl String?
@@ -186,6 +187,7 @@ model MatchPreferences {
   preferredDiet          String?
   orthodoxBridgeRequired Boolean  @default(false)
   strictKnanayaRequired  Boolean  @default(false)
+  preferredReligiousOutlooks String[] @default([])
   
   // Custom compatibility weights (0-10 scale mapped internally)
   weightReligion         Int      @default(25)

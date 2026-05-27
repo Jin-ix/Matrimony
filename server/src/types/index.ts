@@ -45,6 +45,7 @@ export interface DiscoveryFilters {
     motherTongue?: string;
     smoke?: boolean;
     drink?: boolean;
+    preferredReligiousOutlooks?: string[];
 }
 
 export interface MatchProfileResponse {

@@ -100,6 +100,10 @@ export async function getDiscoveryFeed(
         where.drink = filters.drink;
     }
 
+    if (currentUser?.matchPreferences?.preferredReligiousOutlooks && currentUser.matchPreferences.preferredReligiousOutlooks.length > 0) {
+        where.religiousOutlook = { in: currentUser.matchPreferences.preferredReligiousOutlooks };
+    }
+
     const profiles = await prisma.profile.findMany({
         where,
         include: {

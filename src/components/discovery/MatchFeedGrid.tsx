@@ -291,6 +291,10 @@ export default function MatchFeedGrid({
                 if (advancedFilters.maritalStatus !== 'Any') q = q.eq('maritalStatus', advancedFilters.maritalStatus);
                 if (advancedFilters.diet !== 'Any') q = q.eq('dietaryPreference', advancedFilters.diet);
 
+                if (mp?.preferredReligiousOutlooks?.length > 0) {
+                    q = q.in('religiousOutlook', mp.preferredReligiousOutlooks);
+                }
+
                 const { data: dbProfiles, error: dbError } = await q;
                 if (dbError) { console.error('Supabase query error:', dbError.message); throw dbError; }
 
@@ -436,8 +440,8 @@ export default function MatchFeedGrid({
     }
 
     return (
-        <div className="mx-auto w-full max-w-7xl px-6 py-10" style={{ perspective: '1200px' }}>
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 md:py-10" style={{ perspective: '1200px' }}>
+            <div className="grid grid-cols-1 gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-3">
                 {filteredProfiles.length > 0 ? (
                     filteredProfiles.map((profile) => (
                         <div key={profile.id} className="relative">

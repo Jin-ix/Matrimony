@@ -25,7 +25,7 @@ export default function FilterControlBar({
 }: FilterControlBarProps) {
 
     return (
-        <div className="sticky top-[73px] z-30 w-full border-b border-gold-200 bg-white/95 px-6 py-3 backdrop-blur-xl shadow-sm">
+        <div className="sticky top-[73px] z-30 w-full border-b border-gold-200 bg-white/95 px-4 sm:px-6 py-3 backdrop-blur-xl shadow-sm">
             <div className="mx-auto flex max-w-7xl items-center justify-between">
 
                 {/* Left Side: Standard Filters */}

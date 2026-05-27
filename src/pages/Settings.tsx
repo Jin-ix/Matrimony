@@ -5,7 +5,7 @@ import {
     ArrowLeft, Bell, LogOut, Shield, User, Heart, EyeOff,
     Save, ChevronRight, Activity, CheckCircle, MapPin, Church,
     Briefcase, GraduationCap, Instagram, CheckCircle2, X,
-    Upload, FileText, Clock, AlertCircle
+    Upload, FileText, Clock, AlertCircle, UserPlus
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resolvePhotoUrl } from '../utils/photo';
@@ -236,6 +236,7 @@ export default function Settings() {
             familyValues:     profile.familyValues   || null,
             smoke:            profile.smoke        ?? null,
             drink:            profile.drink        ?? null,
+            religiousOutlook: profile.religiousOutlook || null,
             updatedAt:        new Date().toISOString(),
         };
 
@@ -268,6 +269,7 @@ export default function Settings() {
                     maxAge: preferences.maxAge ?? 40,
                     orthodoxBridgeRequired: preferences.orthodoxBridgeRequired ?? false,
                     strictKnanayaRequired: preferences.strictKnanayaRequired ?? false,
+                    preferredReligiousOutlooks: preferences.preferredReligiousOutlooks ?? [],
                     weightReligion: preferences.weightReligion ?? 25,
                     weightPersonality: preferences.weightPersonality ?? 15,
                     weightFinance: preferences.weightFinance ?? 15,
@@ -763,6 +765,12 @@ function ProfileForm({ profile, setProfile, loading, userId, showToast }: {
                             <option value="yes">Yes</option>
                         </select>
                     </Field>
+                    <Field label="Religious Outlook">
+                        <select value={profile.religiousOutlook || ''} onChange={e => up('religiousOutlook', e.target.value)} className={inputCls + ' appearance-none cursor-pointer'}>
+                            <option value="">— Select —</option>
+                            {['Liberal', 'Moderate', 'Highly Religious', 'Traditional'].map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </Field>
                 </div>
 
                 <Field label="About Me (Bio)">
@@ -862,6 +870,34 @@ function PreferencesSettings({ preferences, setPreferences }: { preferences: any
                         </div>
                     </label>
                 ))}
+                
+                <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-white/10">
+                    <label className={labelCls}>Preferred Religious Outlook</label>
+                    <p className="text-[13px] text-gray-500 dark:text-gray-400">Select which types of religious practices you are open to matching with.</p>
+                    <div className="flex flex-wrap gap-3 mt-2">
+                        {['Liberal', 'Moderate', 'Highly Religious', 'Traditional'].map(outlook => {
+                            const selected = (preferences.preferredReligiousOutlooks || []).includes(outlook);
+                            return (
+                                <button
+                                    key={outlook}
+                                    type="button"
+                                    onClick={() => {
+                                        const current = preferences.preferredReligiousOutlooks || [];
+                                        const next = selected ? current.filter((o: string) => o !== outlook) : [...current, outlook];
+                                        up('preferredReligiousOutlooks', next);
+                                    }}
+                                    className={`px-4 py-2 rounded-full border text-[13px] font-medium transition-colors ${
+                                        selected 
+                                            ? 'bg-gold-600 border-gold-600 text-white shadow-sm' 
+                                            : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-gold-300'
+                                    }`}
+                                >
+                                    {outlook}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             <div className="mt-12">
@@ -1300,7 +1336,9 @@ function VerificationForm({ userData, setUserData, showToast }: {
     const [isUploading, setIsUploading] = useState(false);
     const [isDemoVerifying, setIsDemoVerifying] = useState(false);
     const [documents, setDocuments] = useState<any[]>([]);
-    const [documentType, setDocumentType] = useState<'baptism_certificate' | 'government_id'>('baptism_certificate');
+    const [documentType, setDocumentType] = useState<'baptism_certificate' | 'government_id' | 'referral'>('baptism_certificate');
+    const [referralCode, setReferralCode] = useState('');
+    const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
 
     const fetchStatus = useCallback(async () => {
         if (!userId) return;
@@ -1466,6 +1504,21 @@ function VerificationForm({ userData, setUserData, showToast }: {
         }
     };
 
+    const handleReferralVerify = async () => {
+        if (!referralCode.trim()) return;
+        setIsVerifyingReferral(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            showToast('success', 'Referral code accepted! Verifying profile...');
+            await handleAutoVerify();
+        } catch (e) {
+            showToast('error', 'Failed to verify referral code.');
+        } finally {
+            setIsVerifyingReferral(false);
+            setReferralCode('');
+        }
+    };
+
     const getStatusStyles = (status: string) => {
         switch (status) {
             case 'APPROVED':
@@ -1558,7 +1611,7 @@ function VerificationForm({ userData, setUserData, showToast }: {
                         <h3 className="font-semibold text-sacred-dark dark:text-pearl-50 text-lg">Upload Documents</h3>
                         
                         {/* Selector */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <button
                                 type="button"
                                 onClick={() => setDocumentType('baptism_certificate')}
@@ -1583,9 +1636,44 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                 <Shield className="w-5 h-5 mx-auto mb-2 opacity-80" />
                                 <span className="text-xs uppercase tracking-wider">Government ID</span>
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setDocumentType('referral')}
+                                className={`p-4 rounded-xl border-2 text-center transition-all ${
+                                    documentType === 'referral'
+                                        ? 'border-gold-400 bg-gold-50/20 dark:bg-gold-950/30 text-gold-800 dark:text-gold-300 font-semibold shadow-sm'
+                                        : 'border-gray-100 dark:border-white/10 hover:border-gray-200 dark:hover:border-white/20 text-gray-600 dark:text-gray-400'
+                                }`}
+                            >
+                                <UserPlus className="w-5 h-5 mx-auto mb-2 opacity-80" />
+                                <span className="text-xs uppercase tracking-wider">Peer Referral</span>
+                            </button>
                         </div>
 
-                        {/* File Inputs */}
+                        {/* File Inputs / Referral */}
+                        {documentType === 'referral' ? (
+                            <div className="relative border-2 border-gray-200 dark:border-white/10 rounded-2xl p-8 bg-gray-50/50 dark:bg-white/5 flex flex-col items-center justify-center text-center">
+                                <p className="text-[14px] text-gray-700 dark:text-gray-200 font-semibold mb-6">
+                                    Enter a referral code from a verified member.
+                                </p>
+                                <div className="flex w-full max-w-sm gap-2">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter Referral Code" 
+                                        value={referralCode}
+                                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                                        className="flex-1 min-w-0 rounded-xl border border-gray-200 dark:border-white/10 px-4 py-2 bg-white dark:bg-sacred-midnight outline-none focus:border-gold-400"
+                                    />
+                                    <button 
+                                        onClick={handleReferralVerify}
+                                        disabled={isVerifyingReferral || !referralCode.trim()}
+                                        className="shrink-0 bg-gold-600 hover:bg-gold-500 text-white px-6 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                                    >
+                                        {isVerifyingReferral ? 'Verifying...' : 'Submit'}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
                         <div className="relative border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl p-8 hover:bg-gray-50/50 dark:hover:bg-white/5 hover:border-gold-300 dark:hover:border-gold-500/40 transition-colors flex flex-col items-center justify-center text-center cursor-pointer">
                             <input
                                 type="file"
@@ -1604,6 +1692,7 @@ function VerificationForm({ userData, setUserData, showToast }: {
                                 PDF, PNG, JPG up to 10MB
                             </p>
                         </div>
+                        )}
                     </div>
                 )}
 

@@ -10,7 +10,7 @@ export default function WelcomeHubBanner({ userRole, userGender }: WelcomeHubBan
     const candidateTerm = userGender === 'female' ? 'daughter' : userGender === 'male' ? 'son' : 'loved one';
     
     return (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-gold-50 via-white to-gold-50 p-8 shadow-sm border border-gold-100 mb-10 text-center">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-gold-50 via-white to-gold-50 p-5 sm:p-8 shadow-sm border border-gold-100 mb-8 sm:mb-10 text-center">
             {/* Background Animations */}
             <div className="absolute inset-0 pointer-events-none opacity-20">
                 <motion.div
@@ -72,7 +72,7 @@ export default function WelcomeHubBanner({ userRole, userGender }: WelcomeHubBan
                     </svg>
                 </div>
 
-                <h2 className="font-serif text-3xl font-medium text-sacred-dark md:text-4xl">
+                <h2 className="font-serif text-2xl font-medium text-sacred-dark md:text-4xl">
                     Welcome to the Hub
                 </h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 md:text-base font-sans">

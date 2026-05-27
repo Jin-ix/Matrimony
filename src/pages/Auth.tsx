@@ -28,6 +28,15 @@ export default function Auth() {
     const [linkError, setLinkError] = useState<string | null>(null);
     const [linkSuccess, setLinkSuccess] = useState(false);
 
+    const passwordStrength = {
+        length: password.length >= 8,
+        symbol: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+    };
+    const isPasswordStrong = Object.values(passwordStrength).every(Boolean);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -114,6 +123,11 @@ export default function Auth() {
 
             } else {
                 // Register Flow via Backend
+                if (!isPasswordStrong) {
+                    setError('Please ensure your password meets all requirements.');
+                    setLoading(false);
+                    return;
+                }
                 if (password !== confirmPassword) {
                     setError('Passwords do not match');
                     setLoading(false);
@@ -225,13 +239,13 @@ export default function Auth() {
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-gold-50 to-gold-100 text-gold-600 shadow-inner border border-gold-200 mb-2">
                         <ShieldCheck className="h-8 w-8 text-gold-500" />
                     </div>
-                    <h2 className="text-3xl font-serif text-sacred-dark">
-                        {isForgotPassword ? 'Reset Password' : (isLogin ? 'Welcome Back' : 'Create Account')}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                        {isForgotPassword 
-                            ? 'Enter your email to receive a secure reset link' 
-                            : (isLogin ? 'Enter your details to sign in' : 'Start your sacred journey today')}
+                    <h1 className="text-3xl font-serif text-sacred-dark mb-2">
+                        {isForgotPassword ? 'Reset Password' : (isLogin ? 'Welcome' : 'Create Account')}
+                    </h1>
+                    <p className="text-gray-500 mb-8">
+                        {isForgotPassword
+                            ? 'Enter your email to receive a reset link'
+                            : (isLogin ? 'Enter your details to log in' : 'Start your sacred journey today')}
                     </p>
                 </div>
 
@@ -284,15 +298,8 @@ export default function Auth() {
                                 {!loading && <ArrowRight className="h-4 w-4" />}
                             </button>
                             <div className="mt-6 text-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsForgotPassword(false);
-                                        setError(null);
-                                    }}
-                                    className="text-sm font-medium text-gold-700 hover:text-gold-900 transition-colors"
-                                >
-                                    Back to Sign In
+                                <button type="button" onClick={() => setIsForgotPassword(false)} className="mt-4 text-sm text-gold-600 hover:text-gold-700 font-medium">
+                                    Back to Log In
                                 </button>
                             </div>
                         </>
@@ -370,6 +377,29 @@ export default function Auth() {
                                 </button>
                             </div>
 
+                            {!isLogin && (
+                                <div className="px-1 text-xs space-y-1.5 pt-1">
+                                    <p className="text-gray-500 font-medium">Password must contain:</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className={`flex items-center gap-1.5 transition-colors ${passwordStrength.length ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> <span>8+ characters</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${passwordStrength.upper ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> <span>Uppercase letter</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${passwordStrength.lower ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> <span>Lowercase letter</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${passwordStrength.number ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> <span>Number</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 transition-colors ${passwordStrength.symbol ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> <span>Special symbol</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {isLogin && (
                                 <div className="flex justify-end mt-1">
                                     <button
@@ -412,21 +442,13 @@ export default function Auth() {
                                 disabled={loading}
                                 className="mt-6 flex w-full items-center justify-center space-x-2 rounded-xl bg-sacred-dark py-4 font-medium text-sacred-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
                             >
-                                <span>{loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}</span>
+                                <span>{loading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}</span>
                                 {!loading && <ArrowRight className="h-4 w-4" />}
                             </button>
 
                             <div className="mt-6 text-center">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsLogin(!isLogin);
-                                        setError(null);
-                                        setRole('candidate');
-                                    }}
-                                    className="text-sm font-medium text-gold-700 hover:text-gold-900 transition-colors"
-                                >
-                                    {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                                <button type="button" onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-sm font-medium text-gold-600 hover:text-gold-500 transition-colors">
+                                    {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}
                                 </button>
                             </div>
                         </>
