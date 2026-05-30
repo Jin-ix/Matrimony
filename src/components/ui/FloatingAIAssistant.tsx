@@ -367,6 +367,7 @@ export default function FloatingAIAssistant() {
 
             {/* ── Floating Action Button ── */}
             <motion.button
+                id="tour-ai-assistant"
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.5, type: 'spring', stiffness: 300 }}

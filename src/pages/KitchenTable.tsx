@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowLeft, Send, Users, Search, Bell, Settings,
-    CheckCircle2, UserPlus, X, Loader2, ChevronRight, MessageSquare, Link2, Info
+    CheckCircle2, UserPlus, X, Loader2, ChevronRight, MessageSquare, Link2, Info,
+    Sparkles
 } from 'lucide-react';
 import { io, type Socket } from 'socket.io-client';
 import { supabase } from '../lib/supabase';
@@ -488,6 +489,17 @@ export default function KitchenTable() {
     const activeMessages = chatMode === 'internal' ? messages : externalMessages;
     const isMyMessage = (msg: ChatMessage) => msg.senderId === myUserId;
 
+    const requestGuardianInsight = () => {
+        const insightId = `angel-${Date.now()}`;
+        setMessages(prev => [...prev, {
+            id: insightId,
+            senderRole: 'guardian_angel',
+            senderName: 'Guardian Angel',
+            text: `I've analyzed both profiles. I see a beautiful spiritual alignment in your shared devotion to St. Jude and your family roots in the Syro-Malabar diocese. Perhaps you could discuss how your families honor these traditions, or share a favorite Novena.`,
+            timestamp: new Date().toISOString(),
+        }]);
+    };
+
     return (
         <div className="flex h-screen bg-sacred-offwhite text-sacred-dark font-sans overflow-hidden">
 
@@ -746,8 +758,34 @@ export default function KitchenTable() {
                         ) : (
                             activeMessages.map((msg, i) => {
                                 const isMine = isMyMessage(msg);
+                                const isAngel = msg.senderRole === 'guardian_angel';
                                 const prevMsg = activeMessages[i - 1];
                                 const showName = i === 0 || prevMsg?.senderId !== msg.senderId;
+
+                                if (isAngel) {
+                                    return (
+                                        <motion.div
+                                            key={msg.id}
+                                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                                            className="w-full flex justify-center my-6"
+                                        >
+                                            <div className="relative max-w-xl w-full bg-gradient-to-br from-amber-50 to-orange-50/50 border border-gold-200/50 rounded-3xl p-6 shadow-[0_8px_30px_rgba(212,175,55,0.15)] overflow-hidden">
+                                                <div className="absolute -top-10 -right-10 w-32 h-32 bg-gold-300/20 blur-3xl rounded-full pointer-events-none" />
+                                                <div className="flex gap-4">
+                                                    <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-gold-400 to-amber-500 flex items-center justify-center text-white shadow-md shadow-gold-500/30">
+                                                        <Sparkles className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-semibold text-gold-700 tracking-wide uppercase mb-1">Guardian Angel Insight</h4>
+                                                        <p className="text-[15px] leading-relaxed text-sacred-dark/80 italic font-serif">"{msg.text}"</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                }
 
                                 return (
                                     <motion.div
@@ -804,8 +842,19 @@ export default function KitchenTable() {
                     </div>
 
                     {/* Floating Input */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#F3F0EA] via-[#F3F0EA]/80 to-transparent pt-20 pb-8 px-8 pointer-events-none">
-                        <div className="relative max-w-3xl mx-auto flex items-end bg-white/70 backdrop-blur-xl rounded-[28px] border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.06)] p-1.5 pointer-events-auto ring-1 ring-black/5 transition-all focus-within:bg-white/90 focus-within:shadow-[0_8px_40px_rgba(212,175,55,0.15)] focus-within:ring-gold-300/50">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#F3F0EA] via-[#F3F0EA]/80 to-transparent pt-20 pb-8 px-8 pointer-events-none flex flex-col items-center">
+                        {chatMode === 'internal' && (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={requestGuardianInsight}
+                                className="mb-4 pointer-events-auto flex items-center gap-2 bg-gradient-to-r from-gold-500/10 to-amber-500/10 border border-gold-300/30 backdrop-blur-md px-4 py-2 rounded-full text-[13px] text-gold-700 font-medium hover:bg-gold-50 transition-colors shadow-[0_4px_12px_rgba(212,175,55,0.1)]"
+                            >
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                Seek Spiritual Counsel
+                            </motion.button>
+                        )}
+                        <div className="relative max-w-3xl w-full flex items-end bg-white/70 backdrop-blur-xl rounded-[28px] border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.06)] p-1.5 pointer-events-auto ring-1 ring-black/5 transition-all focus-within:bg-white/90 focus-within:shadow-[0_8px_40px_rgba(212,175,55,0.15)] focus-within:ring-gold-300/50">
                             <textarea
                                 ref={inputRef}
                                 value={input}

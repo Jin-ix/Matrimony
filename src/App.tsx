@@ -9,25 +9,29 @@ import Settings from './pages/Settings';
 import Promise from './pages/Promise';
 import ProfileView from './pages/ProfileView';
 import { NotificationProvider } from './lib/notificationContext';
-
+import { GuidedTourProvider } from './lib/GuidedTourContext';
+import GuidedTourOverlay from './components/ui/GuidedTourOverlay';
 
 function App() {
   return (
     <Router>
       <NotificationProvider>
-        <Routes>
-          <Route path="/" element={<Promise />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/discovery" element={<Discovery />} />
-          <Route path="/kitchen-table" element={<KitchenTable />} />
-          <Route path="/kitchen-table/:matchId" element={<KitchenTable />} />
-          <Route path="/messages" element={<Connections />} />
-          <Route path="/messages/:chatId" element={<Messages />} />
-          <Route path="/profile/:id" element={<ProfileView />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/promise" element={<Promise />} />
-        </Routes>
+        <GuidedTourProvider>
+          <Routes>
+            <Route path="/" element={<Promise />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/discovery" element={<Discovery />} />
+            <Route path="/kitchen-table" element={<KitchenTable />} />
+            <Route path="/kitchen-table/:matchId" element={<KitchenTable />} />
+            <Route path="/messages" element={<Connections />} />
+            <Route path="/messages/:chatId" element={<Messages />} />
+            <Route path="/profile/:id" element={<ProfileView />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/promise" element={<Promise />} />
+          </Routes>
+          <GuidedTourOverlay />
+        </GuidedTourProvider>
       </NotificationProvider>
     </Router>
   );

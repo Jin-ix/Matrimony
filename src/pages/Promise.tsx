@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import {
     Sparkles,
     SlidersHorizontal,
     ArrowLeft,
+    ArrowRight,
     ChevronDown,
     Volume2,
     VolumeX
@@ -119,7 +120,6 @@ function AudioToggle() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
-        // High quality ambient drone/choral music placeholder
         audioRef.current = new Audio('https://assets.mixkit.co/music/preview/mixkit-ethereal-choir-ascension-114.mp3');
         audioRef.current.loop = true;
         audioRef.current.volume = 0.3;
@@ -130,6 +130,17 @@ function AudioToggle() {
             }
         };
     }, []);
+
+    useEffect(() => {
+        const handleStartAudio = () => {
+            if (!isPlaying && audioRef.current) {
+                audioRef.current.play().catch((err) => console.log('Audio autoplay prevented', err));
+                setIsPlaying(true);
+            }
+        };
+        window.addEventListener('start-cinematic-audio', handleStartAudio);
+        return () => window.removeEventListener('start-cinematic-audio', handleStartAudio);
+    }, [isPlaying]);
 
     const togglePlay = () => {
         if (!audioRef.current) return;
@@ -151,7 +162,6 @@ function AudioToggle() {
             title="Toggle Cinematic Audio"
         >
             {isPlaying ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6 opacity-50" />}
-            {/* Pulsing ring if playing */}
             {isPlaying && (
                 <span className="absolute inset-0 rounded-full border border-gold-400/30 animate-ping" style={{ animationDuration: '3s' }} />
             )}
@@ -159,22 +169,61 @@ function AudioToggle() {
     );
 }
 
-/* ─────────────────────── hero parallax ─────────────────────── */
+/* ─────────────────────── interactive deck slides ─────────────────────── */
 
-function HeroSection() {
-    const ref = useRef<HTMLDivElement>(null);
-    const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
-    const y = useTransform(scrollYProgress, [0, 1], ['0%', '40%']);
-    const opacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+function SlideToAdvance({ onAdvance, text }: { onAdvance: () => void, text: string }) {
+    const x = useMotionValue(0);
+    const bgWidth = useTransform(x, (val) => val + 64);
+    const textOpacity = useTransform(x, [0, 150], [1, 0]);
+    const triggeredRef = useRef(false);
 
     return (
-        <div ref={ref} className="relative h-screen flex items-center justify-center overflow-hidden bg-sacred-dark sticky top-0 z-0">
+        <div className="relative w-80 h-16 rounded-full border border-white/[0.1] bg-white/[0.02] overflow-hidden flex items-center shadow-inner touch-none group backdrop-blur-md">
+            <motion.div 
+                className="absolute inset-y-0 left-0 bg-gold-500/20"
+                style={{ width: bgWidth }}
+            />
+            
+            <motion.div style={{ opacity: textOpacity }} className="absolute w-full pl-12 text-center text-pearl-400 text-xs tracking-[0.2em] uppercase font-semibold pointer-events-none select-none transition-colors group-hover:text-gold-300">
+                {text}
+            </motion.div>
+            
+            <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 256 }}
+                dragElastic={0.05}
+                dragSnapToOrigin={true}
+                onDrag={() => {
+                    if (!triggeredRef.current && x.get() > 240) {
+                        triggeredRef.current = true;
+                        onAdvance();
+                    }
+                }}
+                style={{ x }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-14 h-14 ml-1 rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing shadow-[0_0_20px_rgba(212,175,55,0.4)] z-10 bg-gold-500 hover:bg-gold-400 transition-colors"
+            >
+                <ArrowRight className="w-5 h-5 text-sacred-dark" />
+            </motion.div>
+        </div>
+    );
+}
+
+function HeroSlide({ onNext }: { onNext: () => void }) {
+    return (
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.95 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 flex items-center justify-center overflow-hidden bg-sacred-dark z-10"
+        >
             {/* Background ambient orbs */}
             <div className="absolute inset-0 bg-sacred-dark" />
             <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-gold-400/8 rounded-full blur-[160px] animate-divine-glow pointer-events-none" />
             <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-rose-400/6 rounded-full blur-[140px] animate-float-slow pointer-events-none" />
 
-            {/* Decorative cross watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
                 <svg viewBox="0 0 100 100" className="w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] text-gold-300" fill="none" stroke="currentColor" strokeWidth="0.3">
                     <line x1="50" y1="5" x2="50" y2="95" />
@@ -182,8 +231,7 @@ function HeroSection() {
                 </svg>
             </div>
 
-            <motion.div style={{ y, opacity }} className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-                {/* Ornamental divider */}
+            <div className="relative z-10 text-center px-6 max-w-4xl mx-auto flex flex-col items-center">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -222,140 +270,185 @@ function HeroSection() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className="text-pearl-300 text-lg md:text-xl font-light leading-relaxed max-w-2xl mx-auto"
+                    className="text-pearl-300 text-lg md:text-xl font-light leading-relaxed max-w-2xl mx-auto mb-16"
                 >
                     Six sacred pillars that form the foundation of everything we do.
-                    Scroll down to explore the sanctuary.
+                    Take this journey to understand our sanctuary.
                 </motion.p>
 
-                {/* Scroll indicator */}
-                <motion.div
+                <motion.button
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1.5, duration: 1 }}
-                    className="mt-16 flex flex-col items-center gap-2"
+                    onClick={() => {
+                        window.dispatchEvent(new Event('start-cinematic-audio'));
+                        onNext();
+                    }}
+                    className="group relative px-8 py-4 bg-white/[0.05] border border-gold-500/30 hover:border-gold-400 hover:bg-gold-500/10 rounded-full transition-all duration-500 overflow-hidden"
                 >
-                    <span className="text-pearl-400 text-xs tracking-[0.2em] uppercase">Scroll to uncover</span>
-                    <motion.div
-                        animate={{ y: [0, 8, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                    >
-                        <ChevronDown className="w-5 h-5 text-gold-400/60" />
-                    </motion.div>
-                </motion.div>
-            </motion.div>
-        </div>
-    );
-}
-
-/* ─────────────────────── horizontal scroll section ─────────────────────── */
-
-function HorizontalScrollSection() {
-    const targetRef = useRef<HTMLDivElement>(null);
-    const { scrollYProgress } = useScroll({ target: targetRef });
-
-    // The Magic: Spring-dampened physics for buttery smooth scrolling
-    // This turns a stepped mouse wheel into a fluid glide.
-    const smoothProgress = useSpring(scrollYProgress, {
-        stiffness: 60,
-        damping: 20,
-        restDelta: 0.001
-    });
-
-    // Translate horizontally across the 6 pillars
-    // Formula: -(number of gaps / total items) * 100%
-    const translateXPct = -((pillars.length - 1) / pillars.length) * 100;
-    const x = useTransform(smoothProgress, [0, 1], ["0%", `${translateXPct}%`]);
-
-    return (
-        <section ref={targetRef} className="relative h-[600vh] bg-sacred-dark z-10 w-full overflow-x-hidden">
-            <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center shadow-[-50px_0_100px_rgba(0,0,0,0.8)] border-t border-white/[0.05]">
-                
-                {/* Dynamic Crossfading Backgrounds */}
-                {pillars.map((pillar, idx) => {
-                    const center = idx * (1 / (pillars.length - 1));
-                    const opacity = useTransform(
-                        smoothProgress,
-                        [center - 0.2, center, center + 0.2],
-                        [0, 1, 0]
-                    );
-
-                    return (
-                        <motion.div
-                            key={`bg-${pillar.id}`}
-                            style={{ opacity }}
-                            className={`absolute inset-0 bg-gradient-to-br ${pillar.accent}`}
-                        />
-                    );
-                })}
-
-                {/* The Horizontal Track */}
-                <motion.div style={{ x, width: `${pillars.length * 100}%` }} className="relative z-10 flex h-full items-center">
-                    {pillars.map((pillar, index) => (
-                        <PillarSlide key={pillar.id} pillar={pillar} index={index} total={pillars.length} />
-                    ))}
-                </motion.div>
-
-                {/* Global Scroll Progress Bar */}
-                <div className="absolute bottom-10 md:bottom-16 left-12 right-12 h-[2px] bg-white/[0.1] rounded-full overflow-hidden z-20">
-                    <motion.div 
-                        className="h-full bg-gradient-to-r from-gold-500 to-rose-400"
-                        style={{ scaleX: smoothProgress, transformOrigin: 'left' }}
-                    />
-                </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-gold-500/0 via-gold-500/10 to-gold-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+                    <div className="relative flex items-center gap-3">
+                        <span className="text-gold-200 tracking-widest uppercase text-sm font-semibold">Begin Journey</span>
+                        <ChevronDown className="w-5 h-5 text-gold-400 group-hover:translate-y-1 transition-transform duration-300" />
+                    </div>
+                </motion.button>
             </div>
-        </section>
+        </motion.div>
     );
 }
 
-function PillarSlide({ pillar, index, total }: { pillar: PromisePillar; index: number; total: number }) {
+function InteractivePillarSlide({ pillar, index, total, onNext, onPrev }: { pillar: PromisePillar; index: number; total: number; onNext: () => void; onPrev: () => void }) {
     const Icon = pillar.icon;
-    const isEven = index % 2 === 0;
+    
+    // Advanced 3D tilt
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+    const rotateX = useTransform(y, [-500, 500], [10, -10]);
+    const rotateY = useTransform(x, [-500, 500], [-10, 10]);
+
+    const handleMouseMove = (event: React.MouseEvent) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        x.set(event.clientX - rect.left - rect.width / 2);
+        y.set(event.clientY - rect.top - rect.height / 2);
+    };
+
+    const handleMouseLeave = () => {
+        x.set(0);
+        y.set(0);
+    };
 
     return (
-        <div style={{ width: `${100 / total}%` }} className="h-full shrink-0 flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 relative overflow-hidden">
-            
-            {/* Massive Typography Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                <span className="text-[50vw] font-serif font-bold text-white opacity-[0.015] leading-none tracking-tighter">
+        <motion.div 
+            initial={{ opacity: 0, x: 100, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: -100, filter: 'blur(10px)' }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-32 xl:px-48 overflow-y-auto overflow-x-hidden min-h-screen z-20 bg-sacred-dark"
+        >
+            <div className={`fixed inset-0 bg-gradient-to-br ${pillar.accent} opacity-40 pointer-events-none transition-colors duration-1000`} />
+
+            {/* Subtle Back Button */}
+            <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                onClick={onPrev}
+                className="absolute top-8 left-8 md:top-12 md:left-12 z-50 text-gold-400/50 hover:text-gold-400 flex items-center gap-2 transition-colors text-sm uppercase tracking-widest"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
+            </motion.button>
+
+            <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+                <motion.span 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 0.015, scale: 1 }}
+                    transition={{ duration: 1.5 }}
+                    className="text-[50vw] font-serif font-bold text-white leading-none tracking-tighter"
+                >
                     {pillar.number}
-                </span>
+                </motion.span>
             </div>
 
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
-                <div className={`${isEven ? 'order-1' : 'order-1 lg:order-2'} flex flex-col justify-center`}>
-                    <Icon className="w-16 h-16 md:w-20 md:h-20 text-gold-400 mb-8 drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" strokeWidth={1} />
-                    <span className="block text-gold-400/80 uppercase tracking-[0.35em] text-xs md:text-sm font-semibold mb-4">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center min-h-screen py-24">
+                <div className="flex flex-col justify-center order-1">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.3, type: "spring", stiffness: 200, damping: 20 }}
+                    >
+                        <Icon className="w-16 h-16 md:w-20 md:h-20 text-gold-400 mb-8 drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]" strokeWidth={1} />
+                    </motion.div>
+                    
+                    <motion.span 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="block text-gold-400/80 uppercase tracking-[0.35em] text-xs md:text-sm font-semibold mb-4"
+                    >
                         {pillar.badge}
-                    </span>
-                    <h2 className="text-4xl md:text-5xl lg:text-7xl font-serif text-pearl-50 leading-[1.1] mb-6 tracking-tight drop-shadow-2xl">
+                    </motion.span>
+                    
+                    <motion.h2 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="text-4xl md:text-5xl lg:text-7xl font-serif text-pearl-50 leading-[1.1] mb-6 tracking-tight drop-shadow-2xl"
+                    >
                         {pillar.title}
-                    </h2>
-                    <p className="text-gold-300/90 text-xl md:text-2xl font-light italic mb-8">
+                    </motion.h2>
+                    
+                    <motion.p 
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="text-gold-300/90 text-xl md:text-2xl font-light italic mb-8"
+                    >
                         {pillar.subtitle}
-                    </p>
+                    </motion.p>
                     
                     {pillar.scripture && (
-                        <div className="mt-8 border-l border-gold-500/30 pl-6">
+                        <motion.div 
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.7 }}
+                            className="mt-8 border-l border-gold-500/30 pl-6"
+                        >
                             <p className="text-pearl-200/60 text-base italic font-serif leading-relaxed">
                                 {pillar.scripture}
                             </p>
                             <p className="text-gold-400/40 text-xs mt-3 tracking-[0.2em] uppercase">
                                 {pillar.scriptureRef}
                             </p>
-                        </div>
+                        </motion.div>
                     )}
                 </div>
 
-                <div className={`${isEven ? 'order-2' : 'order-2 lg:order-1'} space-y-6 md:space-y-8 bg-sacred-midnight/30 p-8 md:p-12 rounded-[2rem] backdrop-blur-2xl border border-white/[0.08] shadow-[0_0_50px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-2 hover:bg-sacred-midnight/40 duration-500`}>
+                <motion.div 
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
+                    style={{ rotateX, rotateY, transformPerspective: 1000 }}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6, duration: 0.8 }}
+                    className="order-2 space-y-6 md:space-y-8 bg-sacred-midnight/30 p-8 md:p-12 rounded-[2rem] backdrop-blur-2xl border border-white/[0.08] shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                >
                     {pillar.body.map((paragraph, i) => (
-                        <p key={i} className="text-pearl-200/90 text-lg md:text-xl font-light leading-relaxed">
+                        <motion.p 
+                            key={i} 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.8 + i * 0.2 }}
+                            className="text-pearl-200/90 text-lg md:text-xl font-light leading-relaxed"
+                        >
                             {paragraph}
-                        </p>
+                        </motion.p>
                     ))}
-                </div>
+                    
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1.5 }}
+                        className="mt-12 flex justify-end"
+                    >
+                        <SlideToAdvance 
+                            onAdvance={onNext} 
+                            text={index === total - 1 ? "Slide to Seal Promise" : "Slide to Acknowledge"} 
+                        />
+                    </motion.div>
+                </motion.div>
             </div>
-        </div>
+            
+            {/* Minimal Progress Bar */}
+            <div className="fixed top-0 left-0 h-1 bg-white/[0.05] w-full z-50">
+                <motion.div 
+                    initial={{ width: `${(index / total) * 100}%` }}
+                    animate={{ width: `${((index + 1) / total) * 100}%` }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                    className="h-full bg-gradient-to-r from-gold-500 to-rose-400"
+                />
+            </div>
+        </motion.div>
     );
 }
 
@@ -376,7 +469,7 @@ function HoldToAccept() {
                     setTimeout(() => navigate('/auth'), 300);
                     return 100;
                 }
-                return prev + 3; // fills in ~660ms
+                return prev + 3;
             });
         }, 20);
     };
@@ -385,7 +478,7 @@ function HoldToAccept() {
         setIsHolding(false);
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (progress < 100) {
-            setProgress(0); // Reset
+            setProgress(0);
         }
     };
 
@@ -398,17 +491,15 @@ function HoldToAccept() {
                 onContextMenu={(e) => e.preventDefault()}
                 className={`relative group w-48 h-48 md:w-56 md:h-56 rounded-full border border-gold-500/20 flex items-center justify-center overflow-hidden touch-none transition-transform duration-300 ${isHolding && progress < 100 ? 'scale-95' : 'scale-100'} ${progress === 100 ? 'scale-110' : ''}`}
             >
-                {/* Progress SVG */}
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                    <circle cx="50%" cy="50%" r="48%" fill="none" stroke="currentColor" strokeWidth="1" className="text-white/5" />
-                    <circle cx="50%" cy="50%" r="48%" fill="none" stroke="currentColor" strokeWidth="4" 
+                <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full -rotate-90">
+                    <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="1" className="text-white/5" />
+                    <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="4" 
                         className="text-gold-400 transition-all duration-75"
-                        strokeDasharray={2 * Math.PI * 100} // Rough approximation, strokeDasharray is robust enough
-                        strokeDashoffset={2 * Math.PI * 100 * (1 - progress / 100)}
+                        strokeDasharray={2 * Math.PI * 48}
+                        strokeDashoffset={2 * Math.PI * 48 * (1 - progress / 100)}
                     />
                 </svg>
 
-                {/* Inner Button */}
                 <div className={`absolute inset-3 rounded-full flex items-center justify-center flex-col transition-all duration-500 ${progress === 100 ? 'bg-gold-500 shadow-[0_0_40px_rgba(212,175,55,0.6)]' : 'bg-white/[0.03] backdrop-blur-md group-hover:bg-white/[0.08]'}`}>
                     <span className={`font-semibold uppercase tracking-[0.2em] text-xs md:text-sm transition-colors duration-300 text-center px-4 ${progress === 100 ? 'text-sacred-dark scale-110' : 'text-gold-400'}`}>
                         {progress === 100 ? 'Promise Accepted' : 'Hold to Accept'}
@@ -422,22 +513,22 @@ function HoldToAccept() {
     );
 }
 
-/* ──────────────────── closing CTA section ──────────────────── */
-
-function ClosingSection() {
+function ClosingSlide() {
     return (
-        <div className="relative h-screen flex items-center justify-center bg-sacred-dark z-20 overflow-hidden">
-            {/* Background glow */}
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1 }}
+            className="absolute inset-0 flex items-center justify-center bg-sacred-dark z-30 overflow-hidden"
+        >
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-[800px] h-[800px] bg-gold-400/5 rounded-full blur-[200px]" />
+                <div className="w-[800px] h-[800px] bg-gold-400/5 rounded-full blur-[200px] animate-pulse" />
             </div>
 
             <div className="relative z-10 px-6 max-w-3xl mx-auto text-center">
-                {/* Ornamental cross */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
+                    animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.8 }}
                     className="flex justify-center mb-8"
                 >
@@ -448,8 +539,7 @@ function ClosingSection() {
 
                 <motion.blockquote
                     initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
                     className="mb-16"
                 >
@@ -463,47 +553,43 @@ function ClosingSection() {
 
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
                 >
                     <HoldToAccept />
                 </motion.div>
             </div>
-        </div>
+            
+            <div className="fixed top-0 left-0 h-1 bg-gold-500 w-full z-50 shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
+        </motion.div>
     );
 }
 
 /* ─────────────────────── main page ─────────────────────────── */
 
-export default function Promise() {
-    const navigate = useNavigate();
+export default function PromisePage() {
+    const [currentSlide, setCurrentSlide] = useState(-1);
 
     return (
-        <div className="relative w-full bg-sacred-dark text-pearl-50 font-sans selection:bg-gold-500/30 selection:text-gold-200">
-            {/* Cinematic Audio Toggle */}
+        <div className="relative w-full h-screen overflow-hidden bg-sacred-dark text-pearl-50 font-sans selection:bg-gold-500/30 selection:text-gold-200">
             <AudioToggle />
 
-            {/* Fixed back button */}
-            <motion.button
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1, duration: 0.6 }}
-                onClick={() => navigate(-1)}
-                className="fixed top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-md border border-white/[0.1] text-pearl-200 text-sm hover:bg-white/[0.15] transition-all duration-300 shadow-md shadow-black/10"
-            >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back</span>
-            </motion.button>
-
-            {/* 1. Static Hero (sticks underneath the horizontal scroll when you scroll down) */}
-            <HeroSection />
-
-            {/* 2. Horizontal Gliding Pillars (slides over the Hero) */}
-            <HorizontalScrollSection />
-
-            {/* 3. Closing CTA */}
-            <ClosingSection />
+            <AnimatePresence mode="wait">
+                {currentSlide === -1 && <HeroSlide onNext={() => setCurrentSlide(0)} key="hero" />}
+                
+                {currentSlide >= 0 && currentSlide < pillars.length && (
+                    <InteractivePillarSlide 
+                        key={`pillar-${currentSlide}`}
+                        pillar={pillars[currentSlide]}
+                        index={currentSlide}
+                        total={pillars.length}
+                        onNext={() => setCurrentSlide(currentSlide + 1)}
+                        onPrev={() => setCurrentSlide(Math.max(-1, currentSlide - 1))}
+                    />
+                )}
+                
+                {currentSlide === pillars.length && <ClosingSlide key="closing" />}
+            </AnimatePresence>
         </div>
     );
 }

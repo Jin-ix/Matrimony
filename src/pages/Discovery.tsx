@@ -13,8 +13,10 @@ import FloatingAIAssistant from '../components/ui/FloatingAIAssistant';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
+import { useGuidedTour } from '../lib/GuidedTourContext';
 
 export default function Discovery() {
+    const { startTour } = useGuidedTour();
     const [showProfile, setShowProfile] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
@@ -40,8 +42,6 @@ export default function Discovery() {
     // State for Banner customization
     const [userRole, setUserRole] = useState<string | null>(null);
     const [userGender, setUserGender] = useState<string | null>(null);
-
-    // Socket notifications are handled globally in NotificationProvider
 
     // Auto-hide toast & setup user preferences
     useEffect(() => {
@@ -76,6 +76,37 @@ export default function Discovery() {
         }
     }, [toastMessage]);
 
+    // Trigger Tour
+    useEffect(() => {
+        const hasSeenTour = localStorage.getItem('hasSeenDiscoveryTour');
+        if (!hasSeenTour) {
+            const timer = setTimeout(() => {
+                startTour([
+                    {
+                        targetSelector: '#tour-welcome',
+                        title: 'Welcome to Discovery',
+                        content: 'This is your central hub for finding matches. Here you can see recommendations tailored specifically to your family.',
+                        placement: 'bottom'
+                    },
+                    {
+                        targetSelector: '#tour-filters',
+                        title: 'Sacred Filters',
+                        content: 'Use these filters to find matches aligned with your specific traditions, such as Rite or Knanaya lineage.',
+                        placement: 'bottom'
+                    },
+                    {
+                        targetSelector: '#tour-ai-assistant',
+                        title: 'Your Guardian Angel',
+                        content: 'Need help finding someone specific? Ask your AI matchmaker anytime.',
+                        placement: 'top'
+                    }
+                ]);
+                localStorage.setItem('hasSeenDiscoveryTour', 'true');
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [startTour]);
+
     const handleGhostModeToggle = (enabled: boolean) => {
         setToastMessage(enabled ? 'Ghost Mode Enabled: Your profile is now hidden.' : 'Ghost Mode Disabled: You are visible to matches.');
     };
@@ -87,17 +118,19 @@ export default function Discovery() {
                 onNotificationsClick={() => setShowNotifications(true)}
                 onGhostModeToggle={handleGhostModeToggle}
             />
-            <FilterControlBar
-                orthodoxBridge={orthodoxBridge}
-                setOrthodoxBridge={setOrthodoxBridge}
-                strictKnanaya={strictKnanaya}
-                setStrictKnanaya={setStrictKnanaya}
-                activeRite={activeRite}
-                setActiveRite={setActiveRite}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onAdvancedFiltersClick={() => setShowAdvancedFilters(true)}
-            />
+            <div id="tour-filters">
+                <FilterControlBar
+                    orthodoxBridge={orthodoxBridge}
+                    setOrthodoxBridge={setOrthodoxBridge}
+                    strictKnanaya={strictKnanaya}
+                    setStrictKnanaya={setStrictKnanaya}
+                    activeRite={activeRite}
+                    setActiveRite={setActiveRite}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    onAdvancedFiltersClick={() => setShowAdvancedFilters(true)}
+                />
+            </div>
             <main className="relative z-0 min-h-screen">
                 {/* Subtle background ornamentation with wedding vibes */}
                 <div className="fixed inset-0 z-0 pointer-events-none hidden md:block">
@@ -115,7 +148,7 @@ export default function Discovery() {
                 <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(213,168,75,0.08),transparent_60%)] pointer-events-none" />
 
                 <div className="relative z-10 w-full overflow-hidden pt-8">
-                    <div className="px-4 sm:px-6 mx-auto w-full max-w-7xl">
+                    <div id="tour-welcome" className="px-4 sm:px-6 mx-auto w-full max-w-7xl">
                         <WelcomeHubBanner userRole={userRole} userGender={userGender} />
                     </div>
                     <MatchFeedGrid
